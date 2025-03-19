@@ -1,0 +1,14 @@
+# Core Workflows
+
+## User Journeys
+1. **Product Browsing**:
+   - Relevant code files: [list of files responsible for navigation, product listing]
+  
+2. **Checkout Process**:
+   - Relevant code files: [list of files responsible for cart management, payment handling]
+  
+3. **User Authentication**:
+   - Relevant code files: [list of files responsible for login, logout, user session management]
+
+### Note:
+- The workflows and summaries provided are examples. Please modify them to fit the specific use case and structure of your application repository.

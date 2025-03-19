@@ -1,0 +1,17 @@
+# Application Summary
+
+## Architecture
+This document provides a summary of the application's architecture, key modules, and their relationships.
+
+## Key Modules
+- Placeholder for module descriptions.
+- Include information about the functionality, dependencies, and interaction with other modules.
+
+## Relationships
+- Describe how the modules interact with one another.
+- Mention any patterns such as MVC, Microservices, etc.
+
+## High-Level Next Steps for LLM
+1. Identify and generate module summaries for frontend, backend, and database.
+2. Document core workflows and user journeys within the application.
+
