@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "MCP Team", email = "team@mcp.dev"}
+    {name = "Tosin Akinosho"}
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -57,10 +57,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/modelcontextprotocol/mcp-codebase-insight"
-Documentation = "https://github.com/modelcontextprotocol/mcp-codebase-insight/docs"
-Repository = "https://github.com/modelcontextprotocol/mcp-codebase-insight.git"
-Issues = "https://github.com/modelcontextprotocol/mcp-codebase-insight/issues"
+Homepage = "https://github.com/tosin2013/mcp-codebase-insight"
+Documentation = "https://github.com/tosin2013/mcp-codebase-insight/docs"
+Repository = "https://github.com/tosin2013/mcp-codebase-insight.git"
+Issues = "https://github.com/tosin2013/mcp-codebase-insight/issues"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

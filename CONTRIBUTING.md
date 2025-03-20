@@ -17,11 +17,11 @@ Before creating bug reports, please check the issue list as you might find out t
 * Provide specific examples to demonstrate the steps
 * Describe the behavior you observed after following the steps
 * Explain which behavior you expected to see instead and why
-* Include any error messages
+* Include screenshots and animated GIFs if possible
 
 ### Suggesting Enhancements
 
-Enhancement suggestions are tracked as GitHub issues. Create an issue and provide the following information:
+Enhancement suggestions are tracked as GitHub issues. When creating an enhancement suggestion, please include:
 
 * Use a clear and descriptive title
 * Provide a step-by-step description of the suggested enhancement
@@ -33,7 +33,8 @@ Enhancement suggestions are tracked as GitHub issues. Create an issue and provid
 
 * Fill in the required template
 * Do not include issue numbers in the PR title
-* Follow the Python style guide
+* Include screenshots and animated GIFs in your pull request whenever possible
+* Follow the Python style guides
 * Include thoughtfully-worded, well-structured tests
 * Document new code
 * End all files with a newline
@@ -42,57 +43,86 @@ Enhancement suggestions are tracked as GitHub issues. Create an issue and provid
 
 1. Fork the repo
 2. Create a new branch (`git checkout -b feature/amazing-feature`)
-3. Install development dependencies (`make install-dev`)
-4. Make your changes
-5. Run tests and linting (`make check`)
-6. Commit your changes (`git commit -m 'Add amazing feature'`)
+3. Make your changes
+4. Run the tests (`make test`)
+5. Run the linters (`make lint`)
+6. Commit your changes (`git commit -m 'Add some amazing feature'`)
 7. Push to the branch (`git push origin feature/amazing-feature`)
 8. Open a Pull Request
 
-### Setup Development Environment
+### Setting Up Development Environment
 
 ```bash
 # Clone your fork
 git clone https://github.com/your-username/mcp-codebase-insight.git
 cd mcp-codebase-insight
 
-# Install dependencies
-make install-dev
+# Create virtual environment
+python -m venv .venv
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 
-# Start Qdrant container
-docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant:latest
+# Install dependencies
+make dev-setup
 
 # Run tests
 make test
 
+# Run linters
+make lint
+
 # Format code
 make format
-
-# Run linting
-make lint
 ```
 
-### Testing
+### Project Structure
 
-* Write tests for new features
-* Run the test suite with `make test`
-* Ensure coverage remains high
-* Run tests with multiple Python versions locally if possible
+```
+mcp-codebase-insight/
+├── docs/               # Documentation
+├── src/               # Source code
+│   └── mcp_codebase_insight/
+│       ├── core/      # Core functionality
+│       └── utils/     # Utilities
+├── tests/             # Test suite
+├── scripts/           # Utility scripts
+└── examples/          # Example code
+```
 
-### Documentation
+## Style Guides
 
-* Update the README.md with details of changes to the interface
-* Update the CHANGELOG.md following the Keep a Changelog format
-* Add or update docstrings
-* Comment complex code sections
+### Git Commit Messages
 
-## Release Process
+* Use the present tense ("Add feature" not "Added feature")
+* Use the imperative mood ("Move cursor to..." not "Moves cursor to...")
+* Limit the first line to 72 characters or less
+* Reference issues and pull requests liberally after the first line
 
-1. Update CHANGELOG.md
-2. Bump version (`make version-patch`, `make version-minor`, or `make version-major`)
-3. Create GitHub release
-4. CI/CD will automatically publish to PyPI
+### Python Style Guide
 
-## Questions?
+* Follow [PEP 8](https://www.python.org/dev/peps/pep-0008/)
+* Use [Black](https://black.readthedocs.io/) for code formatting
+* Use [isort](https://pycqa.github.io/isort/) for import sorting
+* Use [mypy](http://mypy-lang.org/) for type checking
+* Use [flake8](https://flake8.pycqa.org/) for linting
 
-Feel free to open an issue with your question or contact the maintainers directly.
+### Documentation Style Guide
+
+* Use [Google style](https://google.github.io/styleguide/pyguide.html#38-comments-and-docstrings) for docstrings
+* Keep docstrings clear and concise
+* Include examples in docstrings when appropriate
+* Document both the what and the why
+
+## Additional Notes
+
+### Issue and Pull Request Labels
+
+* `bug`: Something isn't working
+* `enhancement`: New feature or request
+* `documentation`: Improvements or additions to documentation
+* `good first issue`: Good for newcomers
+* `help wanted`: Extra attention is needed
+* `question`: Further information is requested
+
+## License
+
+By contributing, you agree that your contributions will be licensed under its MIT License.

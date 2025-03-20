@@ -1,289 +1,226 @@
 # MCP Codebase Insight
 
-[![CI/CD](https://github.com/tosin2013/mcp-codebase-insight/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/tosin2013/mcp-codebase-insight/actions/workflows/ci-cd.yml)
-[![PyPI version](https://badge.fury.io/py/mcp-codebase-insight.svg)](https://badge.fury.io/py/mcp-codebase-insight)
-[![Python Versions](https://img.shields.io/pypi/pyversions/mcp-codebase-insight.svg)](https://pypi.org/project/mcp-codebase-insight/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![codecov](https://codecov.io/gh/tosin2013/mcp-codebase-insight/branch/main/graph/badge.svg)](https://codecov.io/gh/tosin2013/mcp-codebase-insight)
-
-A Model Context Protocol (MCP) server that provides advanced codebase analysis capabilities to LLMs like Claude. The server integrates with Qdrant vector database to provide semantic search and pattern matching across codebases.
+MCP Codebase Insight is a server component of the Model Context Protocol (MCP) that provides intelligent analysis and insights into codebases. It uses vector search and machine learning to understand code patterns, architectural decisions, and documentation.
 
 ## Features
 
-- **Code Analysis**: Analyze code patterns, architecture, and potential improvements
-- **ADR Management**: Create and manage Architectural Decision Records (ADRs)
-- **Systematic Debugging**: Debug issues using Agans' 9 Rules methodology
-- **Documentation Management**: Crawl, store, and search technical documentation
-- **Knowledge Base**: Store and retrieve development patterns and solutions
-- **Vector Search**: Semantic search across code and documentation
-- **Metrics & Health**: Monitor system performance and health
+- 🔍 **Code Analysis**: Analyze code for patterns, best practices, and potential improvements
+- 📝 **ADR Management**: Track and manage Architecture Decision Records
+- 📚 **Documentation**: Generate and manage technical documentation
+- 🧠 **Knowledge Base**: Store and retrieve code patterns and insights using vector search
+- 🐛 **Debug System**: Analyze and debug issues with AI assistance
+- 📊 **Metrics & Health**: Monitor system health and performance metrics
+- 💾 **Caching**: Efficient caching system for improved performance
+- 🔒 **Security**: Built-in security features and best practices
 
-## Installation
+## Quick Start
 
-### PyPI Installation (Recommended)
+### Using as an MCP Server
 
-```bash
-# Install the package
-pip install mcp-codebase-insight
-
-# Start Qdrant container
-docker run -d -p 6333:6333 -p 6334:6334 qdrant/qdrant:latest
-
-# Start the server
-mcp-codebase-insight
-```
-
-### Development Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/tosin2013/mcp-codebase-insight.git
-cd mcp-codebase-insight
-```
-
-2. Install dependencies:
-```bash
-make install-dev
-```
-
-3. Start Qdrant container:
-```bash
-docker run -d -p 6333:6333 -p 6334:6334 \
-  -v $(pwd)/qdrant_storage:/qdrant/storage:consistent \
-  qdrant/qdrant:latest
-```
-
-4. Start the server:
-```bash
-make start
-```
-
-The server will be available at http://localhost:3000.
-
-## Development Setup
-
-1. Install development dependencies:
-```bash
-make install-dev
-```
-
-2. Load example patterns:
-```bash
-make load-patterns
-```
-
-3. Run tests:
-```bash
-make test
-```
-
-4. Run example:
-```bash
-make example
-```
-
-## Usage with Claude
-
-Here's a simple example of using the server with Claude:
-
-```python
-import asyncio
-from examples.use_with_claude import analyze_code
-
-async def main():
-    # Analyze code
-    result = await analyze_code(
-        code="""
-        def process_data(data):
-            results = []
-            for item in data:
-                if item.get('active'):
-                    value = item.get('value', 0)
-                    if value > 100:
-                        results.append(value * 2)
-            return results
-        """,
-        context={
-            "language": "python",
-            "purpose": "data processing"
-        }
-    )
-    print(result)
-
-asyncio.run(main())
-```
-
-See `examples/use_with_claude.py` for more examples.
-
-## Claude Desktop Integration
-
-To use this MCP server with Claude Desktop:
-
-1. Open Claude Desktop's configuration file:
-```bash
-# macOS
-open ~/Library/Application\ Support/Claude/claude_desktop_config.json
-```
-
-2. Add the MCP server configuration to the `mcpServers` object:
+1. Create an `mcp.json` file in your project:
 ```json
 {
   "mcpServers": {
     "codebase-insight": {
-      "command": "mcp-codebase-insight",
+      "command": "uvicorn",
+      "args": [
+        "src.mcp_codebase_insight.server:app",
+        "--reload",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000"
+      ],
       "env": {
+        "PYTHONPATH": "${workspaceRoot}",
+        "MCP_HOST": "127.0.0.1",
+        "MCP_PORT": "8000",
+        "MCP_LOG_LEVEL": "INFO",
         "QDRANT_URL": "http://localhost:6333",
-        "COLLECTION_NAME": "codebase_analysis",
-        "LOG_LEVEL": "INFO"
-      },
-      "disabled": false,
-      "autoApprove": []
+        "MCP_DOCS_CACHE_DIR": "${workspaceRoot}/docs",
+        "MCP_ADR_DIR": "${workspaceRoot}/docs/adrs",
+        "MCP_KB_STORAGE_DIR": "${workspaceRoot}/knowledge",
+        "MCP_DISK_CACHE_DIR": "${workspaceRoot}/cache"
+      }
     }
   }
 }
 ```
 
-3. Restart Claude Desktop for the changes to take effect.
-
-The MCP server will now be available to Claude through the desktop app, providing access to all codebase analysis tools.
-
-## Available Tools
-
-The server provides the following MCP tools:
-
-- `analyze-code`: Analyze code patterns and architecture
-  - Required: `code` (non-empty string)
-  - Optional: `context` (object)
-
-- `create-adr`: Create architectural decision records
-  - Required: `title` (non-empty string), `decision` (non-empty string)
-  - Optional: `context` (object), `options` (array)
-
-- `debug-issue`: Debug issues systematically
-  - Required: `description` (non-empty string)
-  - Optional: `type` (string), `context` (object)
-
-- `crawl-docs`: Crawl and store documentation
-  - Required: `urls` (non-empty array), `source_type` (non-empty string)
-
-- `search-knowledge`: Search knowledge base
-  - Required: `query` (non-empty string)
-  - Optional: `type` (string), `limit` (number, default: 5)
-
-- `get-task`: Get task status and results
-  - Required: `task_id` (non-empty string)
-
-## Response Format
-
-All tools return responses in a standardized format:
-
-```json
-{
-  "content": [
-    {
-      // Tool-specific response data
-    }
-  ],
-  "isError": false
-}
+2. Install the package in your project:
+```bash
+pip install mcp-codebase-insight
 ```
 
-Error responses follow the same format with `isError: true`:
+3. Start the server:
+```bash
+mcp start codebase-insight
+```
 
-```json
-{
-  "content": [
-    {
-      "error": "Error message",
-      "step": "step_id"  // Optional, included for task failures
-    }
-  ],
-  "isError": true
-}
+### Using Docker
+
+```bash
+# Pull the image
+docker pull modelcontextprotocol/mcp-codebase-insight
+
+# Run the container
+docker run -p 3000:3000 \
+    --env-file .env \
+    -v $(pwd)/docs:/app/docs \
+    -v $(pwd)/knowledge:/app/knowledge \
+    modelcontextprotocol/mcp-codebase-insight
+```
+
+### Local Development Installation
+
+1. Prerequisites:
+   - Python 3.11+
+   - Rust (for building dependencies)
+   - Qdrant vector database
+
+2. Clone the repository:
+   ```bash
+   git clone https://github.com/modelcontextprotocol/mcp-codebase-insight.git
+   cd mcp-codebase-insight
+   ```
+
+3. Create a virtual environment:
+   ```bash
+   python -m venv .venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+4. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Configure environment:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your settings
+   ```
+
+6. Run the server:
+   ```bash
+   uvicorn src.mcp_codebase_insight.server:app --reload
+   ```
+
+## Building for Distribution
+
+To use codebase-insight in other directories, you'll need to build and install it:
+
+1. Create a `setup.py`:
+```python
+from setuptools import setup, find_packages
+
+setup(
+    name="mcp-codebase-insight",
+    version="0.1.0",
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    install_requires=[
+        "fastapi>=0.103.2",
+        "uvicorn>=0.23.2",
+        "pydantic>=2.4.2",
+        "qdrant-client>=1.13.3",
+        "sentence-transformers>=2.2.2",
+        "python-dotenv>=1.0.0"
+    ],
+    python_requires=">=3.11",
+)
+```
+
+2. Build the package:
+```bash
+pip install build
+python -m build
+```
+
+3. Install in another project:
+```bash
+pip install path/to/mcp-codebase-insight/dist/mcp_codebase_insight-0.1.0.tar.gz
 ```
 
 ## Configuration
 
-Configuration is handled through environment variables or `.env` file:
+The server can be configured using:
+1. Environment variables
+2. `.env` file
+3. `mcp.json` configuration
 
-```env
-# Server settings
-HOST=127.0.0.1
-PORT=3000
-LOG_LEVEL=INFO
+Key configuration options:
+- `MCP_HOST`: Server host (default: 127.0.0.1)
+- `MCP_PORT`: Server port (default: 8000)
+- `QDRANT_URL`: Qdrant vector database URL
+- `MCP_EMBEDDING_MODEL`: Model for text embeddings
+- See [.env.example](.env.example) for more options
 
-# Qdrant settings (Docker)
-QDRANT_URL=http://localhost:6333
-COLLECTION_NAME=codebase_analysis
+## API Documentation
 
-# Cache settings
-CACHE_ENABLED=true
-CACHE_SIZE=1000
-CACHE_TTL=3600
+The API documentation is available at `/docs` when the server is running. Key endpoints include:
 
-# Documentation settings
-DOCS_CACHE_DIR=references
-DOCS_REFRESH_INTERVAL=86400
-DOCS_MAX_SIZE=1000000
+- `/tools/analyze-code`: Analyze code for patterns
+- `/tools/create-adr`: Create Architecture Decision Records
+- `/tools/debug-issue`: Debug issues with AI assistance
+- `/tools/search-knowledge`: Search the knowledge base
+- `/tools/crawl-docs`: Crawl documentation
+- `/tools/get-task`: Get task status
+- `/health`: Health check endpoint
+- `/metrics`: Metrics endpoint
 
-# Knowledge base settings
-KB_STORAGE_DIR=knowledge
-KB_BACKUP_INTERVAL=86400
-KB_MAX_PATTERNS=10000
+## Development
+
+### Project Structure
+
+```
+mcp-codebase-insight/
+├── docs/               # Documentation
+├── src/               # Source code
+│   └── mcp_codebase_insight/
+│       ├── core/      # Core functionality
+│       └── utils/     # Utilities
+├── tests/             # Test suite
+├── scripts/           # Utility scripts
+└── examples/          # Example code
 ```
 
-## Project Structure
-
-```
-mcp-server-qdrant/
-├── src/
-│   └── mcp_server_qdrant/
-│       ├── core/           # Core components
-│       ├── utils/          # Utilities
-│       ├── server.py       # MCP server implementation
-│       └── main.py         # Entry point
-├── tests/                  # Test suite
-├── docs/                   # Documentation
-│   ├── adrs/              # Architectural Decision Records
-│   └── templates/         # Templates
-├── scripts/               # Utility scripts
-├── examples/              # Usage examples
-└── knowledge/            # Knowledge base storage
-```
-
-## Development Commands
-
-The project includes a Makefile with common commands:
+### Development Commands
 
 ```bash
-make help              # Show available commands
-make install          # Install dependencies
-make install-dev      # Install development dependencies
-make start           # Start server
-make stop            # Stop server
-make test            # Run tests
-make lint            # Run linters
-make format          # Format code
-make check           # Run all checks
-make load-patterns   # Load example patterns
-make example         # Run example script
-make adr             # Create new ADR
+# Run tests
+pytest tests -v
+
+# Run linters
+flake8 src tests
+
+# Format code
+black src tests
+
+# Build package
+python -m build
+
+# Install locally
+pip install -e .
 ```
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Run tests and linting: `make check`
-5. Submit a pull request
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 ## License
 
-MIT License - see LICENSE file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-- [Model Context Protocol](https://github.com/anthropics/anthropic-tools) for the MCP specification
-- [Qdrant](https://qdrant.tech/) for vector similarity search
-- [sentence-transformers](https://www.sbert.net/) for text embeddings
+- [Model Context Protocol](https://github.com/modelcontextprotocol)
+- [Qdrant Vector Database](https://qdrant.tech)
+- [sentence-transformers](https://www.sbert.net)
+- [FastAPI](https://fastapi.tiangolo.com)
+
+## Support
+
+- 📖 [Documentation](https://github.com/modelcontextprotocol/mcp-codebase-insight/docs)
+- 🐛 [Issue Tracker](https://github.com/modelcontextprotocol/mcp-codebase-insight/issues)
+- 💬 [Discussions](https://github.com/modelcontextprotocol/mcp-codebase-insight/discussions)

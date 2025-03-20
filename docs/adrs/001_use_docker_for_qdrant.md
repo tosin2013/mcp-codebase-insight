@@ -1,4 +1,4 @@
-# ADR 001: Use Docker for Qdrant Deployment
+# Use Docker for Qdrant Vector Database
 
 ## Status
 
@@ -6,63 +6,145 @@ Accepted
 
 ## Context
 
-We need to run Qdrant as our vector database for storing and searching embeddings. Initially, we considered using Homebrew for installation on macOS, but there are several factors to consider:
+We need a vector database to store and search through code patterns and documentation embeddings. Qdrant is chosen as our vector database solution, and we need to determine the best way to deploy and manage it.
 
-1. **Cross-platform compatibility**: While Homebrew works well on macOS, it's not available on other platforms.
-2. **Isolation**: Running Qdrant directly on the host system can lead to potential conflicts with other services.
-3. **Version management**: Docker makes it easier to manage and upgrade Qdrant versions.
-4. **Data persistence**: We need a reliable way to persist vector data across restarts.
-5. **Resource management**: Docker provides better control over resource allocation and limits.
+## Decision Drivers
+
+* Ease of deployment and setup
+* Development environment consistency
+* Production readiness
+* Resource management
+* Scalability
+* Maintainability
+
+## Considered Options
+
+### Option 1: Docker Container
+
+* Use official Qdrant Docker image
+* Run as containerized service
+* Manage with Docker Compose for local development
+* Use Kubernetes for production deployment
+
+### Option 2: Native Installation
+
+* Install Qdrant directly on host system
+* Manage as system service
+* Configure through system files
+* Handle updates through package manager
+
+### Option 3: Cloud-Hosted Solution
+
+* Use managed Qdrant Cloud service
+* Pay per usage
+* Managed infrastructure
+* Automatic updates and maintenance
 
 ## Decision
 
-We will use Docker to run Qdrant instead of installing it directly on the host system. Specifically:
+We will use Docker for running Qdrant. This decision is based on several factors:
 
-1. Run Qdrant using the official Docker image (`qdrant/qdrant:latest`)
-2. Map ports 6333 (REST API) and 6334 (gRPC) to the host system
-3. Use a Docker volume to persist data in the `qdrant_storage` directory
-4. Configure consistent volume mounting for macOS performance
+1. **Development Environment**: Docker provides consistent environment across all developer machines
+2. **Easy Setup**: Simple `docker run` command to get started
+3. **Resource Isolation**: Container ensures clean resource management
+4. **Version Control**: Easy version management through Docker tags
+5. **Production Ready**: Same container can be used in production
+6. **Scaling**: Can be deployed to Kubernetes when needed
 
-The Docker run command will be:
+## Expected Consequences
+
+### Positive Consequences
+
+* Consistent environment across development and production
+* Easy setup process for new developers
+* Clean isolation from other system components
+* Simple version management
+* Clear resource boundaries
+* Easy backup and restore procedures
+* Portable across different platforms
+
+### Negative Consequences
+
+* Additional Docker knowledge required
+* Small performance overhead from containerization
+* Need to manage container resources carefully
+* Additional complexity in monitoring setup
+
+## Pros and Cons of the Options
+
+### Docker Container
+
+* ✅ Consistent environment
+* ✅ Easy setup and teardown
+* ✅ Good isolation
+* ✅ Version control
+* ✅ Production ready
+* ❌ Container overhead
+* ❌ Requires Docker knowledge
+
+### Native Installation
+
+* ✅ Direct system access
+* ✅ No containerization overhead
+* ✅ Full control over configuration
+* ❌ System-dependent setup
+* ❌ Potential conflicts with system packages
+* ❌ More complex version management
+
+### Cloud-Hosted Solution
+
+* ✅ No infrastructure management
+* ✅ Automatic scaling
+* ✅ Managed backups
+* ❌ Higher cost
+* ❌ Less control
+* ❌ Internet dependency
+* ❌ Potential latency issues
+
+## Implementation
+
+### Docker Run Command
+
 ```bash
 docker run -d -p 6333:6333 -p 6334:6334 \
-  -v $(pwd)/qdrant_storage:/qdrant/storage:consistent \
-  qdrant/qdrant:latest
+    -v $(pwd)/qdrant_storage:/qdrant/storage \
+    qdrant/qdrant
 ```
 
-## Consequences
+### Docker Compose Configuration
 
-### Positive
+```yaml
+version: '3.8'
+services:
+  qdrant:
+    image: qdrant/qdrant
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    environment:
+      - RUST_LOG=info
 
-1. **Portability**: The solution works consistently across different operating systems
-2. **Isolation**: Qdrant runs in its own container without affecting the host system
-3. **Easy updates**: Simple to upgrade Qdrant by pulling new Docker images
-4. **Data persistence**: Vector data is safely stored in a mounted volume
-5. **Resource control**: Better management of CPU, memory, and storage resources
-6. **Development/Production parity**: Same deployment method can be used in all environments
+volumes:
+  qdrant_storage:
+```
 
-### Negative
+## Notes
 
-1. **Dependencies**: Requires Docker to be installed and running
-2. **Resource overhead**: Docker adds some overhead compared to native installation
-3. **Learning curve**: Team members need basic Docker knowledge
-4. **Storage management**: Need to handle Docker volume backups and cleanup
+* Monitor container resource usage in production
+* Set up proper backup procedures for the storage volume
+* Consider implementing health checks
+* Document recovery procedures
 
-### Neutral
+## Metadata
 
-1. **Configuration**: Environment variables and connection settings remain the same
-2. **Performance**: No significant impact on query performance
-3. **Monitoring**: Can use both Docker and Qdrant's native monitoring tools
-
-## Implementation Notes
-
-1. Update installation script to check for Docker instead of Homebrew
-2. Add Docker-related files to .gitignore (qdrant_storage/)
-3. Document Docker commands in README.md
-4. Consider adding Docker Compose for multi-container setups in the future
-
-## References
-
-- [Qdrant Docker Documentation](https://qdrant.tech/documentation/guides/installation/#docker)
-- [Docker Volume Performance](https://docs.docker.com/storage/volumes/)
-- [Docker Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)
+* Created: 2025-03-19
+* Last Modified: 2025-03-19
+* Author: Development Team
+* Approvers: Technical Lead, Infrastructure Team
+* Status: Accepted
+* Tags: infrastructure, database, docker, vector-search
+* References:
+  * [Qdrant Docker Documentation](https://qdrant.tech/documentation/guides/installation/#docker)
+  * [Docker Best Practices](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)

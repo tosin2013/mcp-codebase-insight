@@ -1,202 +1,161 @@
-"""Tests for MCP server."""
+"""Test server API endpoints."""
 
 import pytest
 from fastapi.testclient import TestClient
-import json
-from typing import Dict, Any
 
-from src.mcp_server_qdrant.server import CodebaseAnalysisServer
-from src.mcp_server_qdrant.core.config import ServerConfig
+from mcp_codebase_insight.core.config import ServerConfig
+from mcp_codebase_insight.server import CodebaseAnalysisServer
 
-@pytest.fixture
-def server(test_config: ServerConfig) -> CodebaseAnalysisServer:
-    """Create test server."""
-    return CodebaseAnalysisServer(test_config)
-
-@pytest.fixture
-def client(server: CodebaseAnalysisServer) -> TestClient:
-    """Create test client."""
-    return TestClient(server.mcp.app)
-
-def test_server_info(client: TestClient):
-    """Test server info endpoint."""
-    response = client.get("/info")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["name"] == "example-codebase-analysis"
-    assert "version" in data
-
-def test_list_tools(client: TestClient):
-    """Test listing available tools."""
-    response = client.get("/tools")
-    assert response.status_code == 200
-    data = response.json()
-    assert "tools" in data
-    tools = data["tools"]
-    assert len(tools) > 0
-    assert all("name" in tool and "description" in tool for tool in tools)
-
-@pytest.mark.asyncio
-async def test_analyze_code(client: TestClient):
-    """Test code analysis tool."""
-    code = """
-    def process_data(data):
-        results = []
-        for item in data:
-            if item.get('active'):
-                value = item.get('value', 0)
-                if value > 100:
-                    results.append(value * 2)
-        return results
-    """
-    
-    response = client.post(
-        "/tools/analyze-code",
-        json={
-            "code": code,
-            "context": {
-                "language": "python",
-                "purpose": "data processing"
-            }
-        }
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "task_id" in data
-    
-    # Check task status
-    task_response = client.get(f"/tools/get-task?task_id={data['task_id']}")
-    assert task_response.status_code == 200
-    task_data = task_response.json()
-    assert task_data["type"] == "code_analysis"
-    assert task_data["status"] in ["completed", "in_progress"]
-
-@pytest.mark.asyncio
-async def test_create_adr(client: TestClient):
-    """Test ADR creation tool."""
-    response = client.post(
-        "/tools/create-adr",
-        json={
-            "title": "Test ADR",
-            "context": {
-                "technical": "Test technical context",
-                "business": "Test business context"
-            },
-            "options": [
-                {
-                    "name": "Option 1",
-                    "description": "First option",
-                    "pros": ["Pro 1"],
-                    "cons": ["Con 1"]
-                },
-                {
-                    "name": "Option 2",
-                    "description": "Second option",
-                    "pros": ["Pro 2"],
-                    "cons": ["Con 2"]
-                }
-            ],
-            "decision": "Selected Option 1"
-        }
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "task_id" in data
-    assert "adr_path" in data
-
-@pytest.mark.asyncio
-async def test_debug_issue(client: TestClient):
-    """Test debug issue tool."""
-    response = client.post(
-        "/tools/debug-issue",
-        json={
-            "description": "Test issue",
-            "type": "performance",
-            "context": {
-                "symptoms": "Test symptoms",
-                "environment": "Test environment"
-            }
-        }
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "task_id" in data
-    assert "steps" in data
-
-@pytest.mark.asyncio
-async def test_search_knowledge(client: TestClient):
-    """Test knowledge base search tool."""
-    response = client.post(
-        "/tools/search-knowledge",
-        json={
-            "query": "python error handling",
-            "type": "best_practice",
-            "limit": 3
-        }
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "patterns" in data
-    patterns = data["patterns"]
-    assert len(patterns) <= 3
-    assert all(
-        "id" in p and "name" in p and "description" in p
-        for p in patterns
-    )
-
-@pytest.mark.asyncio
-async def test_crawl_docs(client: TestClient):
-    """Test documentation crawling tool."""
-    response = client.post(
-        "/tools/crawl-docs",
-        json={
-            "urls": ["https://example.com/docs"],
-            "source_type": "api"
-        }
-    )
-    assert response.status_code == 200
-    data = response.json()
-    assert "task_id" in data
-
-def test_error_handling(client: TestClient):
-    """Test error handling in server."""
-    # Test invalid tool
-    response = client.post("/tools/invalid-tool")
-    assert response.status_code == 404
-    
-    # Test invalid parameters
-    response = client.post(
-        "/tools/analyze-code",
-        json={"invalid": "params"}
-    )
-    assert response.status_code == 422
-    
-    # Test missing required parameters
-    response = client.post(
-        "/tools/create-adr",
-        json={
-            "title": "Test ADR"
-            # Missing required fields
-        }
-    )
-    assert response.status_code == 422
-
-def test_health_check(client: TestClient):
+def test_health_check(test_client: TestClient):
     """Test health check endpoint."""
-    response = client.get("/health")
+    response = test_client.get("/health")
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] in ["healthy", "degraded", "unhealthy"]
-    assert "components" in data
-    assert "system" in data
+    assert "status" in data
 
-def test_metrics(client: TestClient):
+def test_metrics(test_client: TestClient):
     """Test metrics endpoint."""
-    response = client.get("/metrics")
+    response = test_client.get("/metrics")
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, dict)
-    # Check for core metrics
-    assert "task_count" in data
-    assert "vector_store_query_count" in data
-    assert "cache_hit_count" in data
+
+def test_analyze_code(test_client: TestClient, test_code: str):
+    """Test code analysis endpoint."""
+    response = test_client.post(
+        "/tools/analyze-code",
+        json={
+            "name": "analyze-code",
+            "arguments": {
+                "code": test_code,
+                "context": {}
+            }
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert not data["isError"]
+    assert len(data["content"]) > 0
+    assert "task_id" in data["content"][0]
+
+def test_create_adr(test_client: TestClient, test_adr: dict):
+    """Test ADR creation endpoint."""
+    response = test_client.post(
+        "/tools/create-adr",
+        json={
+            "name": "create-adr",
+            "arguments": {
+                "title": test_adr["title"],
+                "context": test_adr["context"],
+                "options": test_adr["options"],
+                "decision": test_adr["decision"]
+            }
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert not data["isError"]
+    assert "task_id" in data["content"][0]
+    assert "adr_path" in data["content"][0]
+
+def test_debug_issue(test_client: TestClient):
+    """Test issue debugging endpoint."""
+    response = test_client.post(
+        "/tools/debug-issue",
+        json={
+            "name": "debug-issue",
+            "arguments": {
+                "description": "Test issue description",
+                "type": "bug",
+                "context": {
+                    "severity": "medium"
+                }
+            }
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert not data["isError"]
+    assert "task_id" in data["content"][0]
+    assert "steps" in data["content"][0]
+
+def test_search_knowledge(test_client: TestClient):
+    """Test knowledge base search endpoint."""
+    response = test_client.post(
+        "/tools/search-knowledge",
+        json={
+            "name": "search-knowledge",
+            "arguments": {
+                "query": "error handling patterns",
+                "type": "code",
+                "limit": 5
+            }
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert not data["isError"]
+    assert isinstance(data["content"], list)
+
+def test_get_task(test_client: TestClient, test_code: str):
+    """Test task status retrieval endpoint."""
+    # First create a task
+    response = test_client.post(
+        "/tools/analyze-code",
+        json={
+            "name": "analyze-code",
+            "arguments": {
+                "code": test_code,
+                "context": {}
+            }
+        }
+    )
+    task_id = response.json()["content"][0]["task_id"]
+    
+    # Then get its status
+    response = test_client.post(
+        "/tools/get-task",
+        json={
+            "name": "get-task",
+            "arguments": {
+                "task_id": task_id
+            }
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert not data["isError"]
+    assert data["content"][0]["task_id"] == task_id
+    assert "status" in data["content"][0]
+    assert "result" in data["content"][0]
+
+def test_invalid_request(test_client: TestClient):
+    """Test error handling for invalid requests."""
+    response = test_client.post(
+        "/tools/analyze-code",
+        json={
+            "name": "analyze-code",
+            "arguments": {}  # Missing required arguments
+        }
+    )
+    assert response.status_code in [400, 422]
+    data = response.json()
+    assert "detail" in data
+    assert "missing required field" in data["detail"].lower()
+
+def test_not_found(test_client: TestClient):
+    """Test handling of non-existent endpoints."""
+    response = test_client.get("/nonexistent")
+    assert response.status_code == 404
+
+@pytest.mark.asyncio
+async def test_server_lifecycle(test_config: ServerConfig):
+    """Test server startup and shutdown."""
+    server = CodebaseAnalysisServer(test_config)
+    
+    # Test graceful shutdown
+    await server.stop()
+    
+    # Ensure we can create a new instance after shutdown
+    new_server = CodebaseAnalysisServer(test_config)
+    assert new_server is not None

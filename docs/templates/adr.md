@@ -1,103 +1,58 @@
----
-title: "{title}"
-status: "{status}"
-date: "{date}"
-deciders: "{deciders}"
-technical_story: "{technical_story}"
----
-
 # {title}
 
 ## Status
 
-{status} ({date})
+{status}
 
 ## Context
 
-### Technical Context
-{technical_context}
-
-### Business Context
-{business_context}
-
-### Current Architecture
-{current_architecture}
+{context}
 
 ## Decision Drivers
 
-### Technical Drivers
-* {technical_drivers}
+<!-- What forces influenced this decision? -->
 
-### Business Drivers
-* {business_drivers}
+* Technical constraints
+* Business requirements
+* Resource constraints
+* Time constraints
 
 ## Considered Options
 
-### Option 1: {option_1_name}
-* **Description**: {option_1_description}
-* **Technical Fit**: {option_1_technical_fit}
-* **Business Impact**: {option_1_business_impact}
-* **Risks**: {option_1_risks}
-* **Cost**: {option_1_cost}
-
-### Option 2: {option_2_name}
-* **Description**: {option_2_description}
-* **Technical Fit**: {option_2_technical_fit}
-* **Business Impact**: {option_2_business_impact}
-* **Risks**: {option_2_risks}
-* **Cost**: {option_2_cost}
+{options}
 
 ## Decision
 
-### Chosen Option
-{chosen_option}
+{decision}
 
-### Justification
-{decision_justification}
+## Expected Consequences
 
-## Consequences
+### Positive Consequences
 
-### Positive
-* {positive_consequences}
+{positive_consequences}
 
-### Negative
-* {negative_consequences}
+### Negative Consequences
 
-### Neutral
-* {neutral_consequences}
+{negative_consequences}
 
-## Implementation
+## Pros and Cons of the Options
 
-### Technical Implementation
-{technical_implementation}
+{options_details}
 
-### Migration Strategy
-{migration_strategy}
+## Links
 
-### Validation Criteria
-* {validation_criteria}
-
-## Related Decisions
-* {related_decisions}
+<!-- Optional section for links to other decisions, patterns, or resources -->
 
 ## Notes
-* {notes}
 
-## References
-* {references}
-
-## Updates
-
-### Update 1 ({update_1_date})
-* **Change**: {update_1_change}
-* **Reason**: {update_1_reason}
-* **Impact**: {update_1_impact}
+{notes}
 
 ## Metadata
-```yaml
-version: 1.0
-last_modified: {last_modified}
-impact_level: {impact_level}
-complexity: {complexity}
-implementation_status: {implementation_status}
-confidence_level: {confidence_level}
+
+* Created: {created_at}
+* Last Modified: {updated_at}
+* Author: {author}
+* Approvers: {approvers}
+* Status: {status}
+* Tags: {tags}
+{metadata}

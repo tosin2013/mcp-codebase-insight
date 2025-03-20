@@ -5,9 +5,9 @@ from fastapi.testclient import TestClient
 import json
 from typing import Dict, Any, List
 
-from src.mcp_server_qdrant.server import CodebaseAnalysisServer
-from src.mcp_server_qdrant.core.config import ServerConfig
-from src.mcp_server_qdrant.core.knowledge import PatternType
+from src.mcp_codebase_insight.server import CodebaseAnalysisServer
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.core.knowledge import PatternType
 
 @pytest.fixture
 def server(test_config: ServerConfig) -> CodebaseAnalysisServer:
@@ -116,7 +116,7 @@ async def test_crawl_docs_endpoint(client: TestClient):
         json={
             "name": "crawl-docs",
             "arguments": {
-                "urls": ["https://docs.python.org/3/library/asyncio.html"],
+                "urls": ["file:///test/docs/sample.html"],  # Use a file URL that won't make actual HTTP requests
                 "source_type": "library_docs"
             }
         }
