@@ -1,5 +1,6 @@
 """Codebase Analysis Server implementation."""
 
+import argparse
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Union
@@ -21,6 +22,39 @@ from .core.errors import (
     ResourceNotFoundError,
     ProcessingError
 )
+from .utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+def parse_args():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser(
+        description="MCP Codebase Insight Server - A tool for analyzing codebases using the Model Context Protocol",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host address to bind the server to"
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=3000,
+        help="Port to run the server on"
+    )
+    parser.add_argument(
+        "--log-level",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        default="INFO",
+        help="Set the logging level"
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode"
+    )
+    return parser.parse_args()
 
 # Create FastAPI app instance
 app = FastAPI(
@@ -275,3 +309,34 @@ async def shutdown():
     await kb.cleanup()
     await metrics.cleanup()
     await health.cleanup()
+
+def run():
+    """Run the server."""
+    args = parse_args()
+    
+    # Update config with command line arguments
+    config.host = args.host
+    config.port = args.port
+    config.log_level = args.log_level
+    config.debug_mode = args.debug
+    
+    # Log startup message
+    logger.info(
+        "Starting MCP Codebase Insight Server",
+        host=config.host,
+        port=config.port,
+        log_level=config.log_level,
+        debug=config.debug_mode
+    )
+    
+    import uvicorn
+    uvicorn.run(
+        app,
+        host=config.host,
+        port=config.port,
+        log_level=config.log_level.lower(),
+        reload=config.debug_mode
+    )
+
+if __name__ == "__main__":
+    run()

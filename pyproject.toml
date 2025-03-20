@@ -62,6 +62,9 @@ Documentation = "https://github.com/tosin2013/mcp-codebase-insight/docs"
 Repository = "https://github.com/tosin2013/mcp-codebase-insight.git"
 Issues = "https://github.com/tosin2013/mcp-codebase-insight/issues"
 
+[project.scripts]
+mcp-codebase-insight = "mcp_codebase_insight.server:run"
+
 [tool.setuptools]
 package-dir = {"" = "src"}
 

@@ -22,19 +22,19 @@ MCP Codebase Insight is a server component of the Model Context Protocol (MCP) t
 {
   "mcpServers": {
     "codebase-insight": {
-      "command": "uvicorn",
+      "command": "mcp-codebase-insight",
       "args": [
-        "src.mcp_codebase_insight.server:app",
-        "--reload",
         "--host",
         "127.0.0.1",
         "--port",
-        "8000"
+        "3000",
+        "--log-level",
+        "INFO"
       ],
       "env": {
         "PYTHONPATH": "${workspaceRoot}",
         "MCP_HOST": "127.0.0.1",
-        "MCP_PORT": "8000",
+        "MCP_PORT": "3000",
         "MCP_LOG_LEVEL": "INFO",
         "QDRANT_URL": "http://localhost:6333",
         "MCP_DOCS_CACHE_DIR": "${workspaceRoot}/docs",
@@ -68,7 +68,7 @@ docker run -p 3000:3000 \
     --env-file .env \
     -v $(pwd)/docs:/app/docs \
     -v $(pwd)/knowledge:/app/knowledge \
-    modelcontextprotocol/mcp-codebase-insight
+    tosin2013/mcp-codebase-insight
 ```
 
 ### Local Development Installation
@@ -80,7 +80,7 @@ docker run -p 3000:3000 \
 
 2. Clone the repository:
    ```bash
-   git clone https://github.com/modelcontextprotocol/mcp-codebase-insight.git
+   git clone https://github.com/tosin2013/mcp-codebase-insight.git
    cd mcp-codebase-insight
    ```
 
@@ -144,17 +144,53 @@ pip install path/to/mcp-codebase-insight/dist/mcp_codebase_insight-0.1.0.tar.gz
 
 ## Configuration
 
-The server can be configured using:
-1. Environment variables
-2. `.env` file
-3. `mcp.json` configuration
+### Setting up mcp.json
 
-Key configuration options:
-- `MCP_HOST`: Server host (default: 127.0.0.1)
-- `MCP_PORT`: Server port (default: 8000)
-- `QDRANT_URL`: Qdrant vector database URL
-- `MCP_EMBEDDING_MODEL`: Model for text embeddings
-- See [.env.example](.env.example) for more options
+The `mcp.json` file is used to configure how the MCP server runs in your development environment. Create this file in your project's root directory:
+
+1. Create a new file named `mcp.json` in your project root
+2. Add the following configuration, adjusting paths and settings as needed:
+
+```json
+{
+  "mcpServers": {
+    "codebase-insight": {
+      "command": "mcp-codebase-insight",
+      "args": [
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8000",
+        "--log-level",
+        "INFO"
+      ],
+      "env": {
+        "PYTHONPATH": "${workspaceRoot}",
+        "MCP_HOST": "127.0.0.1",
+        "MCP_PORT": "8000",
+        "MCP_LOG_LEVEL": "INFO",
+        "QDRANT_URL": "http://localhost:6333",
+        "MCP_DOCS_CACHE_DIR": "${workspaceRoot}/docs",
+        "MCP_ADR_DIR": "${workspaceRoot}/docs/adrs",
+        "MCP_KB_STORAGE_DIR": "${workspaceRoot}/knowledge",
+        "MCP_DISK_CACHE_DIR": "${workspaceRoot}/cache"
+      }
+    }
+  }
+}
+```
+
+This configuration:
+- Sets up the server to run on localhost:8000
+- Configures logging and debugging options
+- Specifies paths for documentation, ADRs, and caching
+- Sets the Qdrant vector database URL
+
+You can customize these settings based on your needs. The server supports the following command-line options:
+- `--host`: Host address to bind the server to (default: 127.0.0.1)
+- `--port`: Port to run the server on (default: 3000)
+- `--log-level`: Set the logging level (choices: DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `--debug`: Enable debug mode
 
 ## API Documentation
 
