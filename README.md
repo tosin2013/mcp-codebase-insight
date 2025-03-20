@@ -54,7 +54,7 @@ pip install mcp-codebase-insight
 
 3. Start the server:
 ```bash
-mcp start codebase-insight
+mcp-codebase-insight --host 127.0.0.1 --port 8000 --log-level INFO
 ```
 
 ### Using Docker
