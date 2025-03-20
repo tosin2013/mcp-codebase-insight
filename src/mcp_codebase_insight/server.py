@@ -5,6 +5,8 @@ from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel
 from typing import Dict, List, Optional, Union
 from datetime import datetime
+import os
+from pathlib import Path
 
 from .core.adr import ADRManager, ADRStatus
 from .core.config import ServerConfig
@@ -65,33 +67,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Initialize config
-config = ServerConfig()
-
-# Initialize components
-metrics = MetricsManager(config)
-health = HealthManager(config)
-cache = CacheManager(config)
-debug = DebugSystem(config)
-docs_manager = DocumentationManager(config)
-adr = ADRManager(config)
-
-# Initialize vector store with embedder
-embedder = SentenceTransformerEmbedding()
-vector_store = VectorStore(
-    url=config.qdrant_url,
-    embedder=embedder
-)
-kb = KnowledgeBase(config, vector_store=vector_store)
-
-tasks = TaskManager(
-    config=config,
-    adr_manager=adr,
-    debug_system=debug,
-    doc_manager=docs_manager,
-    knowledge_base=kb
-)
-
 class ToolRequest(BaseModel):
     """Tool request model."""
     name: str
@@ -105,17 +80,28 @@ class ToolResponse(BaseModel):
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return await health.check_health()
+    if hasattr(app.state, "health"):
+        return await app.state.health.check_health()
+    else:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Health manager not initialized")
 
 @app.get("/metrics")
 async def get_metrics():
     """Get metrics endpoint."""
-    return await metrics.get_metrics()
+    if hasattr(app.state, "metrics"):
+        return await app.state.metrics.get_metrics()
+    else:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Metrics manager not initialized")
 
 @app.post("/tools/{tool_name}")
 async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
     """Generic tool endpoint."""
     try:
+        if hasattr(app.state, "tasks"):
+            tasks = app.state.tasks
+        else:
+            raise ResourceNotFoundError("Task manager not initialized")
+        
         if tool_name == "analyze-code":
             if "code" not in request.arguments:
                 raise InvalidRequestError("Missing required field: code")
@@ -128,6 +114,10 @@ async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
                     context=request.arguments
                 )
                 # Start analysis immediately
+                if hasattr(app.state, "kb"):
+                    kb = app.state.kb
+                else:
+                    raise ResourceNotFoundError("Knowledge base not initialized")
                 analysis_result = await kb.analyze_code(request.arguments["code"])
                 # Update task status
                 task = await tasks.update_task(
@@ -158,6 +148,10 @@ async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
                     if "name" in option and "title" not in option:
                         option["title"] = option.pop("name")
                 
+                if hasattr(app.state, "adr"):
+                    adr = app.state.adr
+                else:
+                    raise ResourceNotFoundError("ADR manager not initialized")
                 adr_doc = await adr.create_adr(
                     title=request.arguments["title"],
                     context=request.arguments["context"],
@@ -180,6 +174,10 @@ async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
                 if field not in request.arguments:
                     raise InvalidRequestError(f"Missing required field: {field}")
             
+            if hasattr(app.state, "debug"):
+                debug = app.state.debug
+            else:
+                raise ResourceNotFoundError("Debug system not initialized")
             issue = await debug.create_issue(
                 title=request.arguments.get("title", "Untitled Issue"),
                 type=request.arguments["type"],
@@ -195,6 +193,10 @@ async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
             if "query" not in request.arguments:
                 raise InvalidRequestError("Missing required field: query")
             
+            if hasattr(app.state, "kb"):
+                kb = app.state.kb
+            else:
+                raise ResourceNotFoundError("Knowledge base not initialized")
             results = await kb.find_similar_patterns(
                 query=request.arguments["query"],
                 pattern_type=request.arguments.get("type"),
@@ -218,6 +220,10 @@ async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
                     context=request.arguments
                 )
                 # Start crawling immediately
+                if hasattr(app.state, "docs_manager"):
+                    docs_manager = app.state.docs_manager
+                else:
+                    raise ResourceNotFoundError("Documentation manager not initialized")
                 try:
                     docs = await docs_manager.crawl_docs(
                         urls=request.arguments["urls"],
@@ -297,45 +303,86 @@ async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
 
 @app.on_event("startup")
 async def startup():
-    """Initialize components on startup."""
-    await vector_store.initialize()
-    await kb.initialize()
-    await metrics.initialize()
-    await health.initialize()
+    """Initialize server components on startup."""
+    # Initialize config
+    config = ServerConfig()
+    
+    # Ensure directories exist
+    os.makedirs(config.docs_cache_dir, exist_ok=True)
+    os.makedirs(config.adr_dir, exist_ok=True)
+    os.makedirs(config.kb_storage_dir, exist_ok=True)
+    os.makedirs(config.disk_cache_dir, exist_ok=True)
+    
+    # Initialize components
+    app.state.config = config
+    app.state.metrics = MetricsManager(config)
+    app.state.health = HealthManager(config)
+    app.state.cache = CacheManager(config)
+    app.state.debug = DebugSystem(config)
+    app.state.docs_manager = DocumentationManager(config)
+    app.state.adr = ADRManager(config)
+
+    # Initialize vector store with embedder
+    embedder = SentenceTransformerEmbedding()
+    app.state.vector_store = VectorStore(
+        url=config.qdrant_url,
+        embedder=embedder
+    )
+    app.state.kb = KnowledgeBase(config, vector_store=app.state.vector_store)
+
+    app.state.tasks = TaskManager(
+        config=config,
+        adr_manager=app.state.adr,
+        debug_system=app.state.debug,
+        doc_manager=app.state.docs_manager,
+        knowledge_base=app.state.kb
+    )
+    
+    logger.info(
+        "Server initialized",
+        host=config.host,
+        port=config.port,
+        docs_dir=str(config.docs_cache_dir),
+        kb_dir=str(config.kb_storage_dir)
+    )
 
 @app.on_event("shutdown")
 async def shutdown():
-    """Cleanup components on shutdown."""
-    await kb.cleanup()
-    await metrics.cleanup()
-    await health.cleanup()
+    """Cleanup server components on shutdown."""
+    if hasattr(app.state, "vector_store"):
+        await app.state.vector_store.close()
+    if hasattr(app.state, "cache"):
+        await app.state.cache.clear_all()
+    if hasattr(app.state, "metrics"):
+        await app.state.metrics.reset()
 
 def run():
     """Run the server."""
     args = parse_args()
     
     # Update config with command line arguments
-    config.host = args.host
-    config.port = args.port
-    config.log_level = args.log_level
-    config.debug_mode = args.debug
+    if hasattr(app.state, "config"):
+        app.state.config.host = args.host
+        app.state.config.port = args.port
+        app.state.config.log_level = args.log_level
+        app.state.config.debug_mode = args.debug
     
     # Log startup message
     logger.info(
         "Starting MCP Codebase Insight Server",
-        host=config.host,
-        port=config.port,
-        log_level=config.log_level,
-        debug=config.debug_mode
+        host=args.host,
+        port=args.port,
+        log_level=args.log_level,
+        debug=args.debug
     )
     
     import uvicorn
     uvicorn.run(
         app,
-        host=config.host,
-        port=config.port,
-        log_level=config.log_level.lower(),
-        reload=config.debug_mode
+        host=args.host,
+        port=args.port,
+        log_level=args.log_level.lower(),
+        reload=args.debug
     )
 
 if __name__ == "__main__":
