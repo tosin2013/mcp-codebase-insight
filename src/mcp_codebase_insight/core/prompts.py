@@ -1,227 +1,262 @@
-"""Prompt management and generation."""
+"""Prompt management and generation module."""
 
-from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
-from typing import Dict, Any, List, Optional
+from typing import Dict, List, Optional
+from uuid import UUID, uuid4
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.knowledge import KnowledgeBase, Pattern
-from mcp_codebase_insight.core.errors import ValidationError
-from mcp_codebase_insight.utils.logger import get_logger
-
-logger = get_logger(__name__)
+from pydantic import BaseModel
 
 class PromptType(str, Enum):
-    """Types of prompts."""
+    """Prompt type enumeration."""
+    
     CODE_ANALYSIS = "code_analysis"
-    ARCHITECTURE = "architecture"
-    DEBUGGING = "debugging"
+    PATTERN_EXTRACTION = "pattern_extraction"
     DOCUMENTATION = "documentation"
-    TESTING = "testing"
-    REFACTORING = "refactoring"
+    DEBUG = "debug"
+    ADR = "adr"
 
-@dataclass
-class PromptContext:
-    """Context for prompt generation."""
+class PromptTemplate(BaseModel):
+    """Prompt template model."""
+    
+    id: UUID
+    name: str
     type: PromptType
-    input_text: str
-    patterns: List[Pattern]
-    metadata: Dict[str, Any]
+    template: str
+    description: Optional[str] = None
+    variables: List[str]
+    examples: Optional[List[Dict]] = None
+    created_at: datetime
+    updated_at: datetime
+    version: Optional[str] = None
 
 class PromptManager:
-    """Manager for prompt generation and templates."""
-
-    def __init__(self, config: ServerConfig, knowledge_base: KnowledgeBase):
+    """Manager for prompt templates and generation."""
+    
+    def __init__(self, config):
         """Initialize prompt manager."""
         self.config = config
-        self.knowledge_base = knowledge_base
-        self._load_templates()
+        self.templates: Dict[str, PromptTemplate] = {}
+        self._load_default_templates()
+    
+    def _load_default_templates(self):
+        """Load default prompt templates."""
+        # Code Analysis Templates
+        self.add_template(
+            name="code_pattern_analysis",
+            type=PromptType.CODE_ANALYSIS,
+            template="""Analyze the following code for patterns and best practices:
 
-    def _load_templates(self):
-        """Load prompt templates."""
-        self.templates = {
-            PromptType.CODE_ANALYSIS: """
-Analyze the following code for patterns, best practices, and potential improvements:
+Code:
+{code}
 
-{input_text}
-
-Consider these relevant patterns:
-{patterns}
-
-Focus on:
-- Code organization and structure
-- Design patterns and principles
-- Error handling and edge cases
+Consider:
+- Design patterns used
+- Architecture patterns
+- Code organization
+- Error handling
 - Performance considerations
 - Security implications
-- Documentation and readability
 
-Additional context:
-{metadata}
-""",
-            PromptType.ARCHITECTURE: """
-Review the following architectural design:
+Provide detailed analysis focusing on:
+{focus_areas}""",
+            variables=["code", "focus_areas"],
+            description="Template for analyzing code patterns"
+        )
+        
+        # Pattern Extraction Templates
+        self.add_template(
+            name="extract_design_patterns",
+            type=PromptType.PATTERN_EXTRACTION,
+            template="""Extract design patterns from the following code:
 
-{input_text}
+Code:
+{code}
 
-Consider these relevant patterns:
-{patterns}
+Look for instances of:
+- Creational patterns
+- Structural patterns
+- Behavioral patterns
+- Architectural patterns
 
-Evaluate:
-- Component relationships and dependencies
-- Scalability and maintainability
-- Integration points and interfaces
-- Data flow and state management
-- Security and compliance
-- Deployment and operations
+For each pattern found, explain:
+- Pattern name and category
+- How it's implemented
+- Benefits and tradeoffs
+- Potential improvements""",
+            variables=["code"],
+            description="Template for extracting design patterns"
+        )
+        
+        # Documentation Templates
+        self.add_template(
+            name="generate_documentation",
+            type=PromptType.DOCUMENTATION,
+            template="""Generate documentation for the following code:
 
-Additional context:
-{metadata}
-""",
-            PromptType.DEBUGGING: """
-Debug the following issue:
+Code:
+{code}
 
-{input_text}
-
-Consider these relevant patterns:
-{patterns}
-
-Analyze:
-- Error symptoms and triggers
-- System state and context
-- Component interactions
-- Data validation and processing
-- Resource usage and timing
-- Error handling and logging
-
-Additional context:
-{metadata}
-""",
-            PromptType.DOCUMENTATION: """
-Generate documentation for:
-
-{input_text}
-
-Consider these relevant patterns:
-{patterns}
-
+Documentation type: {doc_type}
 Include:
-- Overview and purpose
-- Installation and setup
-- Usage examples and APIs
-- Configuration options
-- Common issues and solutions
-- Security considerations
-
-Additional context:
-{metadata}
-""",
-            PromptType.TESTING: """
-Design tests for:
-
-{input_text}
-
-Consider these relevant patterns:
-{patterns}
-
-Cover:
-- Unit tests and integration tests
-- Edge cases and error conditions
-- Performance benchmarks
-- Security testing
-- Mocking and test data
-- CI/CD integration
-
-Additional context:
-{metadata}
-""",
-            PromptType.REFACTORING: """
-Suggest refactoring improvements for:
-
-{input_text}
-
-Consider these relevant patterns:
-{patterns}
-
-Focus on:
-- Code duplication and complexity
-- Design patterns and principles
-- Performance optimization
+- Overview
+- Usage examples
+- API reference
+- Dependencies
+- Configuration
 - Error handling
-- Maintainability and readability
-- Test coverage
-
-Additional context:
-{metadata}
-"""
-        }
-
-    def _format_patterns(self, patterns: List[Pattern]) -> str:
-        """Format patterns for prompt inclusion."""
-        if not patterns:
-            return "No relevant patterns found."
+- Best practices""",
+            variables=["code", "doc_type"],
+            description="Template for generating documentation"
+        )
         
-        formatted = []
-        for p in patterns:
-            formatted.append(f"""
-Pattern: {p.name}
-Type: {p.type.value}
-Confidence: {p.confidence.value}
-Description: {p.description}
-Examples:
-{chr(10).join(f'- {e}' for e in p.examples)}
-""")
-        return "\n".join(formatted)
+        # Debug Templates
+        self.add_template(
+            name="debug_analysis",
+            type=PromptType.DEBUG,
+            template="""Analyze the following issue:
 
-    def _format_metadata(self, metadata: Dict[str, Any]) -> str:
-        """Format metadata for prompt inclusion."""
-        if not metadata:
-            return "No additional context provided."
+Description:
+{description}
+
+Error:
+{error}
+
+Context:
+{context}
+
+Provide:
+- Root cause analysis
+- Potential solutions
+- Prevention strategies
+- Testing recommendations""",
+            variables=["description", "error", "context"],
+            description="Template for debug analysis"
+        )
         
-        formatted = []
-        for k, v in metadata.items():
-            formatted.append(f"{k}: {v}")
-        return "\n".join(formatted)
+        # ADR Templates
+        self.add_template(
+            name="adr_template",
+            type=PromptType.ADR,
+            template="""# Architecture Decision Record
 
-    async def generate_prompt(
+## Title: {title}
+
+## Status: {status}
+
+## Context
+{context}
+
+## Decision Drivers
+{decision_drivers}
+
+## Considered Options
+{options}
+
+## Decision
+{decision}
+
+## Consequences
+{consequences}
+
+## Implementation
+{implementation}
+
+## Related Decisions
+{related_decisions}""",
+            variables=[
+                "title", "status", "context", "decision_drivers",
+                "options", "decision", "consequences", "implementation",
+                "related_decisions"
+            ],
+            description="Template for architecture decision records"
+        )
+    
+    def add_template(
         self,
+        name: str,
         type: PromptType,
-        input_text: str,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> str:
-        """Generate a prompt with context."""
+        template: str,
+        variables: List[str],
+        description: Optional[str] = None,
+        examples: Optional[List[Dict]] = None,
+        version: Optional[str] = None
+    ) -> PromptTemplate:
+        """Add a new prompt template."""
+        now = datetime.utcnow()
+        template = PromptTemplate(
+            id=uuid4(),
+            name=name,
+            type=type,
+            template=template,
+            description=description,
+            variables=variables,
+            examples=examples,
+            version=version,
+            created_at=now,
+            updated_at=now
+        )
+        
+        self.templates[name] = template
+        return template
+    
+    def get_template(self, name: str) -> Optional[PromptTemplate]:
+        """Get prompt template by name."""
+        return self.templates.get(name)
+    
+    def list_templates(
+        self,
+        type: Optional[PromptType] = None
+    ) -> List[PromptTemplate]:
+        """List all templates, optionally filtered by type."""
+        templates = list(self.templates.values())
+        if type:
+            templates = [t for t in templates if t.type == type]
+        return sorted(templates, key=lambda x: x.name)
+    
+    def generate_prompt(
+        self,
+        template_name: str,
+        variables: Dict[str, str]
+    ) -> Optional[str]:
+        """Generate prompt from template and variables."""
+        template = self.get_template(template_name)
+        if not template:
+            return None
+            
+        # Validate variables
+        missing = [v for v in template.variables if v not in variables]
+        if missing:
+            raise ValueError(f"Missing required variables: {', '.join(missing)}")
+            
         try:
-            if not input_text.strip():
-                raise ValidationError("Input text cannot be empty")
-            
-            # Find relevant patterns
-            patterns = await self.knowledge_base.find_similar_patterns(
-                text=input_text,
-                type=type,
-                limit=3
-            )
-            
-            # Create context
-            context = PromptContext(
-                type=type,
-                input_text=input_text,
-                patterns=patterns,
-                metadata=metadata or {}
-            )
-            
-            # Get template
-            template = self.templates.get(type)
-            if not template:
-                raise ValidationError(f"Unknown prompt type: {type}")
-            
-            # Format prompt
-            prompt = template.format(
-                input_text=input_text,
-                patterns=self._format_patterns(patterns),
-                metadata=self._format_metadata(metadata or {})
-            )
-            
-            return prompt.strip()
+            return template.template.format(**variables)
+        except KeyError as e:
+            raise ValueError(f"Invalid variable: {e}")
         except Exception as e:
-            logger.error(f"Failed to generate prompt: {e}")
-            raise
+            raise ValueError(f"Error generating prompt: {e}")
+    
+    def update_template(
+        self,
+        name: str,
+        template: Optional[str] = None,
+        description: Optional[str] = None,
+        examples: Optional[List[Dict]] = None,
+        version: Optional[str] = None
+    ) -> Optional[PromptTemplate]:
+        """Update prompt template."""
+        tmpl = self.get_template(name)
+        if not tmpl:
+            return None
+            
+        if template:
+            tmpl.template = template
+        if description:
+            tmpl.description = description
+        if examples:
+            tmpl.examples = examples
+        if version:
+            tmpl.version = version
+            
+        tmpl.updated_at = datetime.utcnow()
+        return tmpl

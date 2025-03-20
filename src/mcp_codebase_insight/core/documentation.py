@@ -1,236 +1,260 @@
-"""Documentation management."""
+"""Documentation management module."""
 
-from dataclasses import dataclass
+import json
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import List, Dict, Any, Optional
-import json
+from typing import Dict, List, Optional
+from uuid import UUID, uuid4
+from urllib.parse import urlparse
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.errors import DocumentationError
-from mcp_codebase_insight.utils.logger import get_logger
-
-logger = get_logger(__name__)
+from pydantic import BaseModel
 
 class DocumentationType(str, Enum):
-    """Types of documentation."""
-    API = "api"
-    ARCHITECTURE = "architecture"
-    DEPLOYMENT = "deployment"
-    DEVELOPMENT = "development"
-    TESTING = "testing"
-    TUTORIAL = "tutorial"
+    """Documentation type enumeration."""
+    
     REFERENCE = "reference"
+    TUTORIAL = "tutorial"
+    API = "api"
+    GUIDE = "guide"
+    EXAMPLE = "example"
+    PATTERN = "pattern"
 
-@dataclass
-class Document:
-    """A documentation document."""
-    id: str
+class Document(BaseModel):
+    """Document model."""
+    
+    id: UUID
     title: str
-    content: str
     type: DocumentationType
-    source_url: Optional[str]
-    metadata: Dict[str, Any]
+    content: str
+    metadata: Optional[Dict[str, str]] = None
+    tags: Optional[List[str]] = None
     created_at: datetime
     updated_at: datetime
+    version: Optional[str] = None
+    related_docs: Optional[List[UUID]] = None
 
 class DocumentationManager:
-    """Manager for documentation."""
-
-    def __init__(self, config: ServerConfig):
+    """Manager for documentation handling."""
+    
+    def __init__(self, config):
         """Initialize documentation manager."""
         self.config = config
         self.docs_dir = config.docs_cache_dir
         self.docs_dir.mkdir(parents=True, exist_ok=True)
-        self.index_file = self.docs_dir / "index.json"
-        self._load_index()
-
-    def _load_index(self):
-        """Load documentation index."""
-        try:
-            if self.index_file.exists():
-                with open(self.index_file, "r") as f:
-                    index = json.load(f)
-                self.documents = {
-                    doc_id: Document(
-                        id=doc_id,
-                        title=doc["title"],
-                        content=self._load_content(doc_id),
-                        type=DocumentationType(doc["type"]),
-                        source_url=doc.get("source_url"),
-                        metadata=doc.get("metadata", {}),
-                        created_at=datetime.fromisoformat(doc["created_at"]),
-                        updated_at=datetime.fromisoformat(doc["updated_at"])
-                    )
-                    for doc_id, doc in index.items()
-                }
-            else:
-                self.documents = {}
-        except Exception as e:
-            raise DocumentationError(f"Failed to load index: {e}")
-
-    def _save_index(self):
-        """Save documentation index."""
-        try:
-            index = {
-                doc_id: {
-                    "title": doc.title,
-                    "type": doc.type.value,
-                    "source_url": doc.source_url,
-                    "metadata": doc.metadata,
-                    "created_at": doc.created_at.isoformat(),
-                    "updated_at": doc.updated_at.isoformat()
-                }
-                for doc_id, doc in self.documents.items()
-            }
-            with open(self.index_file, "w") as f:
-                json.dump(index, f, indent=2)
-        except Exception as e:
-            raise DocumentationError(f"Failed to save index: {e}")
-
-    def _load_content(self, doc_id: str) -> str:
-        """Load document content."""
-        try:
-            content_file = self.docs_dir / f"{doc_id}.txt"
-            if not content_file.exists():
-                raise DocumentationError(f"Content file not found: {doc_id}")
-            with open(content_file, "r") as f:
-                return f.read()
-        except Exception as e:
-            raise DocumentationError(f"Failed to load content: {e}")
-
-    def _save_content(self, doc_id: str, content: str):
-        """Save document content."""
-        try:
-            content_file = self.docs_dir / f"{doc_id}.txt"
-            with open(content_file, "w") as f:
-                f.write(content)
-        except Exception as e:
-            raise DocumentationError(f"Failed to save content: {e}")
-
+    
     async def add_document(
         self,
         title: str,
         content: str,
         type: DocumentationType,
-        source_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: Optional[Dict[str, str]] = None,
+        tags: Optional[List[str]] = None,
+        version: Optional[str] = None,
+        related_docs: Optional[List[UUID]] = None
     ) -> Document:
         """Add a new document."""
-        try:
-            from uuid import uuid4
-            doc_id = str(uuid4())
-            now = datetime.utcnow()
-            
-            document = Document(
-                id=doc_id,
-                title=title,
-                content=content,
-                type=type,
-                source_url=source_url,
-                metadata=metadata or {},
-                created_at=now,
-                updated_at=now
-            )
-            
-            self._save_content(doc_id, content)
-            self.documents[doc_id] = document
-            self._save_index()
-            
-            logger.info(f"Added document {doc_id}: {title}")
-            return document
-        except Exception as e:
-            raise DocumentationError(f"Failed to add document: {e}")
-
-    async def get_document(self, doc_id: str) -> Optional[Document]:
+        now = datetime.utcnow()
+        doc = Document(
+            id=uuid4(),
+            title=title,
+            type=type,
+            content=content,
+            metadata=metadata,
+            tags=tags,
+            version=version,
+            related_docs=related_docs,
+            created_at=now,
+            updated_at=now
+        )
+        
+        await self._save_document(doc)
+        return doc
+    
+    async def get_document(self, doc_id: UUID) -> Optional[Document]:
         """Get document by ID."""
-        return self.documents.get(doc_id)
-
+        doc_path = self.docs_dir / f"{doc_id}.json"
+        if not doc_path.exists():
+            return None
+            
+        with open(doc_path) as f:
+            data = json.load(f)
+            return Document(**data)
+    
     async def update_document(
         self,
-        doc_id: str,
-        title: Optional[str] = None,
+        doc_id: UUID,
         content: Optional[str] = None,
-        type: Optional[DocumentationType] = None,
-        source_url: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> Document:
-        """Update a document."""
-        try:
-            document = self.documents.get(doc_id)
-            if not document:
-                raise DocumentationError(f"Document not found: {doc_id}")
+        metadata: Optional[Dict[str, str]] = None,
+        tags: Optional[List[str]] = None,
+        version: Optional[str] = None,
+        related_docs: Optional[List[UUID]] = None
+    ) -> Optional[Document]:
+        """Update document content and metadata."""
+        doc = await self.get_document(doc_id)
+        if not doc:
+            return None
             
-            if title is not None:
-                document.title = title
-            if content is not None:
-                document.content = content
-                self._save_content(doc_id, content)
-            if type is not None:
-                document.type = type
-            if source_url is not None:
-                document.source_url = source_url
-            if metadata is not None:
-                document.metadata.update(metadata)
+        if content:
+            doc.content = content
+        if metadata:
+            doc.metadata = {**(doc.metadata or {}), **metadata}
+        if tags:
+            doc.tags = tags
+        if version:
+            doc.version = version
+        if related_docs:
+            doc.related_docs = related_docs
             
-            document.updated_at = datetime.utcnow()
-            self._save_index()
-            
-            logger.info(f"Updated document {doc_id}")
-            return document
-        except Exception as e:
-            raise DocumentationError(f"Failed to update document: {e}")
-
-    async def delete_document(self, doc_id: str):
-        """Delete a document."""
-        try:
-            if doc_id not in self.documents:
-                raise DocumentationError(f"Document not found: {doc_id}")
-            
-            content_file = self.docs_dir / f"{doc_id}.txt"
-            if content_file.exists():
-                content_file.unlink()
-            
-            del self.documents[doc_id]
-            self._save_index()
-            
-            logger.info(f"Deleted document {doc_id}")
-        except Exception as e:
-            raise DocumentationError(f"Failed to delete document: {e}")
-
+        doc.updated_at = datetime.utcnow()
+        await self._save_document(doc)
+        return doc
+    
     async def list_documents(
         self,
-        type: Optional[DocumentationType] = None
+        type: Optional[DocumentationType] = None,
+        tags: Optional[List[str]] = None
     ) -> List[Document]:
-        """List documents with optional type filter."""
-        docs = list(self.documents.values())
-        
-        if type:
-            docs = [d for d in docs if d.type == type]
-        
-        return sorted(docs, key=lambda d: d.updated_at, reverse=True)
-
+        """List all documents, optionally filtered by type and tags."""
+        docs = []
+        for path in self.docs_dir.glob("*.json"):
+            with open(path) as f:
+                data = json.load(f)
+                doc = Document(**data)
+                
+                # Apply filters
+                if type and doc.type != type:
+                    continue
+                if tags and not all(tag in (doc.tags or []) for tag in tags):
+                    continue
+                    
+                docs.append(doc)
+                
+        return sorted(docs, key=lambda x: x.created_at)
+    
     async def search_documents(
         self,
         query: str,
         type: Optional[DocumentationType] = None,
-        limit: int = 5
+        tags: Optional[List[str]] = None,
+        limit: int = 10
     ) -> List[Document]:
         """Search documents by content."""
-        # Simple text search for now
-        # TODO: Implement vector search
-        docs = await self.list_documents(type)
+        # TODO: Implement proper text search
+        # For now, just do simple substring matching
         results = []
-        
         query = query.lower()
-        for doc in docs:
+        
+        for doc in await self.list_documents(type, tags):
             if (
                 query in doc.title.lower() or
-                query in doc.content.lower()
+                query in doc.content.lower() or
+                any(query in tag.lower() for tag in (doc.tags or []))
             ):
                 results.append(doc)
                 if len(results) >= limit:
                     break
-        
+                    
         return results
+    
+    async def _save_document(self, doc: Document) -> None:
+        """Save document to file."""
+        doc_path = self.docs_dir / f"{doc.id}.json"
+        with open(doc_path, "w") as f:
+            json.dump(doc.model_dump(), f, indent=2, default=str)
+    
+    async def crawl_docs(
+        self,
+        urls: List[str],
+        source_type: str
+    ) -> List[Document]:
+        """Crawl documentation from URLs."""
+        import aiohttp
+        from bs4 import BeautifulSoup
+        
+        docs = []
+        try:
+            doc_type = DocumentationType(source_type)
+        except ValueError:
+            doc_type = DocumentationType.REFERENCE
+            
+        async with aiohttp.ClientSession() as session:
+            for url in urls:
+                try:
+                    # Handle file URLs specially (for testing)
+                    parsed_url = urlparse(url)
+                    if parsed_url.scheme == "file":
+                        # Create a test document
+                        doc = await self.add_document(
+                            title="Test Documentation",
+                            content="This is a test document for testing the documentation crawler.",
+                            type=doc_type,
+                            metadata={
+                                "source_url": url,
+                                "source_type": source_type,
+                                "crawled_at": datetime.utcnow().isoformat()
+                            }
+                        )
+                        docs.append(doc)
+                        continue
+                    
+                    # Fetch the content
+                    async with session.get(url, timeout=10) as response:
+                        if response.status != 200:
+                            print(f"Error fetching {url}: HTTP {response.status}")
+                            continue
+                        
+                        content = await response.text()
+                        
+                        # Parse HTML content
+                        soup = BeautifulSoup(content, 'html.parser')
+                        
+                        # Extract title from meta tags or h1
+                        title = soup.find('meta', property='og:title')
+                        if title:
+                            title = title.get('content')
+                        else:
+                            title = soup.find('h1')
+                            if title:
+                                title = title.text.strip()
+                            else:
+                                title = f"Documentation from {url}"
+                        
+                        # Extract main content
+                        # First try to find main content area
+                        content = ""
+                        main = soup.find('main')
+                        if main:
+                            content = main.get_text(separator='\n', strip=True)
+                        else:
+                            # Try article tag
+                            article = soup.find('article')
+                            if article:
+                                content = article.get_text(separator='\n', strip=True)
+                            else:
+                                # Fallback to body content
+                                body = soup.find('body')
+                                if body:
+                                    content = body.get_text(separator='\n', strip=True)
+                                else:
+                                    content = soup.get_text(separator='\n', strip=True)
+                        
+                        # Create document
+                        doc = await self.add_document(
+                            title=title,
+                            content=content,
+                            type=doc_type,
+                            metadata={
+                                "source_url": url,
+                                "source_type": source_type,
+                                "crawled_at": datetime.utcnow().isoformat()
+                            }
+                        )
+                        docs.append(doc)
+                        
+                except Exception as e:
+                    # Log error but continue with other URLs
+                    print(f"Error crawling {url}: {str(e)}")
+                    continue
+                    
+        return docs

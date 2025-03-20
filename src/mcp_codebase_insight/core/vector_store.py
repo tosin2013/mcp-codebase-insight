@@ -1,128 +1,171 @@
-"""Vector store for semantic search using Qdrant."""
+"""Vector store for pattern similarity search using Qdrant."""
 
-from typing import List, Optional, Dict, Any
-import numpy as np
+from typing import Dict, List, Optional
+
 from qdrant_client import QdrantClient
-from qdrant_client.http import models
+from qdrant_client.http import models as rest
+from qdrant_client.http.models import Distance, VectorParams
 
-from mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
-from mcp_codebase_insight.core.errors import VectorStoreError
-from mcp_codebase_insight.utils.logger import get_logger
-
-logger = get_logger(__name__)
+class SearchResult:
+    """Search result from vector store."""
+    
+    def __init__(self, id: str, score: float):
+        """Initialize search result."""
+        self.id = id
+        self.score = score
 
 class VectorStore:
-    """Vector store for semantic search."""
-
+    """Vector store for pattern similarity search."""
+    
     def __init__(
         self,
-        client: QdrantClient,
-        embedder: SentenceTransformerEmbedding,
-        collection_name: str
+        url: str,
+        embedder,
+        collection_name: str = "codebase_patterns",
+        vector_size: int = 384  # Default for all-MiniLM-L6-v2
     ):
         """Initialize vector store."""
-        self.client = client
+        self.client = QdrantClient(url=url)
         self.embedder = embedder
         self.collection_name = collection_name
-        self._ensure_collection()
-
-    def _ensure_collection(self):
-        """Ensure collection exists with correct settings."""
+        self.vector_size = vector_size
+    
+    async def initialize(self):
+        """Initialize vector store."""
         try:
+            # Create collection if it doesn't exist
             collections = self.client.get_collections().collections
             exists = any(c.name == self.collection_name for c in collections)
-
+            
             if not exists:
-                logger.info(f"Creating collection {self.collection_name}")
                 self.client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=models.VectorParams(
-                        size=self.embedder.get_dimension(),
-                        distance=models.Distance.COSINE
+                    vectors_config=VectorParams(
+                        size=self.vector_size,
+                        distance=Distance.COSINE
                     )
                 )
+            
+            # Ensure collection is ready
+            self.client.get_collection(self.collection_name)
         except Exception as e:
-            raise VectorStoreError(f"Failed to ensure collection: {e}")
-
-    def add_points(
-        self,
-        texts: List[str],
-        metadata: Optional[List[Dict[str, Any]]] = None,
-        ids: Optional[List[str]] = None
-    ) -> List[str]:
-        """Add points to vector store."""
-        try:
-            embeddings = self.embedder.embed(texts)
-            
-            if metadata is None:
-                metadata = [{} for _ in texts]
-            
-            if ids is None:
-                from uuid import uuid4
-                ids = [str(uuid4()) for _ in texts]
-
-            points = [
-                models.PointStruct(
-                    id=id_,
-                    vector=embedding.tolist(),
-                    payload=meta
+            # If there's an error, try to recreate the collection
+            try:
+                self.client.recreate_collection(
+                    collection_name=self.collection_name,
+                    vectors_config=VectorParams(
+                        size=self.vector_size,
+                        distance=Distance.COSINE
+                    )
                 )
-                for id_, embedding, meta in zip(ids, embeddings, metadata)
-            ]
-
-            self.client.upsert(
-                collection_name=self.collection_name,
-                points=points
-            )
-
-            return ids
-        except Exception as e:
-            raise VectorStoreError(f"Failed to add points: {e}")
-
-    def search(
+            except Exception as inner_e:
+                raise RuntimeError(f"Failed to initialize vector store: {str(inner_e)}") from e
+    
+    async def cleanup(self):
+        """Clean up vector store resources."""
+        # Nothing to clean up for now
+        pass
+    
+    async def store_pattern(
         self,
-        query: str,
-        limit: int = 5,
-        filter: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """Search for similar points."""
-        try:
-            embedding = self.embedder.embed(query)
-            
-            results = self.client.search(
-                collection_name=self.collection_name,
-                query_vector=embedding[0].tolist(),
-                limit=limit,
-                query_filter=filter
-            )
-
-            return [
-                {
-                    "id": str(r.id),
-                    "score": r.score,
-                    "payload": r.payload
-                }
-                for r in results
-            ]
-        except Exception as e:
-            raise VectorStoreError(f"Failed to search: {e}")
-
-    def delete_points(self, ids: List[str]):
-        """Delete points from vector store."""
-        try:
-            self.client.delete(
-                collection_name=self.collection_name,
-                points_selector=models.PointIdsList(
-                    points=ids
+        id: str,
+        text: str,
+        metadata: Optional[Dict] = None
+    ) -> None:
+        """Store pattern in vector store."""
+        # Generate embedding
+        vector = await self.embedder.embed(text)
+        
+        # Store in Qdrant
+        self.client.upsert(
+            collection_name=self.collection_name,
+            points=[
+                rest.PointStruct(
+                    id=id,
+                    vector=vector,
+                    payload=metadata or {}
                 )
+            ]
+        )
+    
+    async def update_pattern(
+        self,
+        id: str,
+        text: str,
+        metadata: Optional[Dict] = None
+    ) -> None:
+        """Update pattern in vector store."""
+        # Generate new embedding
+        vector = await self.embedder.embed(text)
+        
+        # Update in Qdrant
+        self.client.update(
+            collection_name=self.collection_name,
+            points=[
+                rest.PointStruct(
+                    id=id,
+                    vector=vector,
+                    payload=metadata or {}
+                )
+            ]
+        )
+    
+    async def delete_pattern(self, id: str) -> None:
+        """Delete pattern from vector store."""
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=rest.PointIdsList(
+                points=[id]
             )
-        except Exception as e:
-            raise VectorStoreError(f"Failed to delete points: {e}")
-
-    def clear_collection(self):
-        """Clear all points from collection."""
-        try:
-            self.client.delete_collection(self.collection_name)
-            self._ensure_collection()
-        except Exception as e:
-            raise VectorStoreError(f"Failed to clear collection: {e}")
+        )
+    
+    async def search(
+        self,
+        text: str,
+        filter_conditions: Optional[Dict] = None,
+        limit: int = 5
+    ) -> List[SearchResult]:
+        """Search for similar patterns."""
+        # Generate query embedding
+        query_vector = await self.embedder.embed(text)
+        
+        # Build filter if conditions provided
+        search_filter = None
+        if filter_conditions:
+            filter_clauses = []
+            for field, value in filter_conditions.items():
+                if isinstance(value, dict) and "$all" in value:
+                    # Handle array contains all filter
+                    filter_clauses.append(
+                        rest.HasIdFilter(
+                            has_id=[str(v) for v in value["$all"]]
+                        )
+                    )
+                else:
+                    # Handle simple equality filter
+                    filter_clauses.append(
+                        rest.FieldCondition(
+                            key=field,
+                            match=rest.MatchValue(value=value)
+                        )
+                    )
+            search_filter = rest.Filter(
+                must=filter_clauses
+            )
+        
+        # Search in Qdrant
+        results = self.client.search(
+            collection_name=self.collection_name,
+            query_vector=query_vector,
+            query_filter=search_filter,
+            limit=limit
+        )
+        
+        # Convert to SearchResult objects
+        return [
+            SearchResult(
+                id=str(hit.id),
+                score=hit.score
+            )
+            for hit in results
+        ]

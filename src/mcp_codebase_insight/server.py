@@ -1,392 +1,277 @@
-from typing import Dict, List, Optional, Any
-import asyncio
+"""Codebase Analysis Server implementation."""
+
+from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel
+from typing import Dict, List, Optional, Union
 from datetime import datetime
 
-from fastapi import FastAPI
-from pydantic import BaseModel
+from .core.adr import ADRManager, ADRStatus
+from .core.config import ServerConfig
+from .core.debug import DebugSystem
+from .core.documentation import DocumentationManager
+from .core.knowledge import KnowledgeBase
+from .core.metrics import MetricsManager
+from .core.health import HealthManager
+from .core.tasks import TaskManager, TaskStatus, TaskType
+from .core.cache import CacheManager
+from .core.vector_store import VectorStore
+from .core.embeddings import SentenceTransformerEmbedding
+from .core.errors import (
+    InvalidRequestError,
+    ResourceNotFoundError,
+    ProcessingError
+)
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.adr import ADRManager, ADRStatus
-from mcp_codebase_insight.core.debug import DebugSystem, IssueType, IssueStatus
-from mcp_codebase_insight.core.documentation import DocumentationManager
-from mcp_codebase_insight.core.knowledge import KnowledgeBase, PatternType
-from mcp_codebase_insight.core.vector_store import VectorStore
-from mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
-from mcp_codebase_insight.core.prompts import PromptManager, PromptType, PromptContext
-from mcp_codebase_insight.core.tasks import TaskManager, TaskType, TaskPriority, TaskStatus
-from mcp_codebase_insight.utils.logger import get_logger
+# Create FastAPI app instance
+app = FastAPI(
+    title="MCP Codebase Insight Server",
+    description="Model Context Protocol server for codebase analysis",
+    version="0.1.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
-logger = get_logger(__name__)
+# Initialize config
+config = ServerConfig()
+
+# Initialize components
+metrics = MetricsManager(config)
+health = HealthManager(config)
+cache = CacheManager(config)
+debug = DebugSystem(config)
+docs_manager = DocumentationManager(config)
+adr = ADRManager(config)
+
+# Initialize vector store with embedder
+embedder = SentenceTransformerEmbedding()
+vector_store = VectorStore(
+    url=config.qdrant_url,
+    embedder=embedder
+)
+kb = KnowledgeBase(config, vector_store=vector_store)
+
+tasks = TaskManager(
+    config=config,
+    adr_manager=adr,
+    debug_system=debug,
+    doc_manager=docs_manager,
+    knowledge_base=kb
+)
 
 class ToolRequest(BaseModel):
+    """Tool request model."""
     name: str
-    arguments: Dict[str, Any]
+    arguments: Dict
 
 class ToolResponse(BaseModel):
-    content: List[Dict[str, Any]]
+    """Tool response model."""
+    content: List[Dict]
     isError: bool = False
 
-class CodebaseAnalysisServer:
-    """MCP server for codebase analysis."""
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return await health.check_health()
 
-    def __init__(self, config: ServerConfig):
-        """Initialize server components."""
-        self.config = config
-        self.app = FastAPI()
+@app.get("/metrics")
+async def get_metrics():
+    """Get metrics endpoint."""
+    return await metrics.get_metrics()
 
-        # Initialize Qdrant client and vector store
-        from qdrant_client import QdrantClient
-
-        client = QdrantClient(url=config.qdrant_url)
-        embedder = SentenceTransformerEmbedding(config.embedding_model)
-        vector_store = VectorStore(client, embedder, config.collection_name)
+@app.post("/tools/{tool_name}")
+async def call_tool(tool_name: str, request: ToolRequest) -> ToolResponse:
+    """Generic tool endpoint."""
+    try:
+        if tool_name == "analyze-code":
+            if "code" not in request.arguments:
+                raise InvalidRequestError("Missing required field: code")
+            
+            try:
+                task = await tasks.create_task(
+                    type="code_analysis",
+                    title=f"Code Analysis: {request.arguments.get('context', {}).get('file', 'unknown')}",
+                    description="Analyze code for patterns and insights",
+                    context=request.arguments
+                )
+                # Start analysis immediately
+                analysis_result = await kb.analyze_code(request.arguments["code"])
+                # Update task status
+                task = await tasks.update_task(
+                    task_id=str(task.id),
+                    status=TaskStatus.COMPLETED,
+                    result=analysis_result
+                )
+                return ToolResponse(content=[{
+                    "task_id": str(task.id),
+                    "results": analysis_result,
+                    "completed_at": task.completed_at.isoformat() if task.completed_at else None
+                }])
+            except Exception as e:
+                import traceback
+                print(f"Error in analyze-code: {str(e)}\n{traceback.format_exc()}")
+                raise ProcessingError(f"Error analyzing code: {str(e)}")
         
-        # Initialize core components
-        self.adr_manager = ADRManager(config)
-        self.debug_system = DebugSystem(config)
-        self.doc_manager = DocumentationManager(config)
-        self.knowledge_base = KnowledgeBase(config, vector_store)
-        self.prompt_manager = PromptManager(config, self.knowledge_base)
-        self.task_manager = TaskManager(
-            config,
-            self.adr_manager,
-            self.debug_system,
-            self.doc_manager,
-            self.knowledge_base,
-            self.prompt_manager
+        elif tool_name == "create-adr":
+            required_fields = ["title", "context", "decision"]
+            for field in required_fields:
+                if field not in request.arguments:
+                    raise InvalidRequestError(f"Missing required field: {field}")
+            
+            try:
+                # Convert options with 'name' field to use 'title' field
+                options = request.arguments.get("options", [])
+                for option in options:
+                    if "name" in option and "title" not in option:
+                        option["title"] = option.pop("name")
+                
+                adr_doc = await adr.create_adr(
+                    title=request.arguments["title"],
+                    context=request.arguments["context"],
+                    options=options,
+                    decision=request.arguments["decision"]
+                )
+                now = datetime.utcnow()
+                return ToolResponse(content=[{
+                    "task_id": str(adr_doc.id),
+                    "adr_path": f"docs/adrs/{adr_doc.id}.md",
+                    "status": ADRStatus.PROPOSED.value,
+                    "completed_at": now.isoformat()
+                }])
+            except Exception as e:
+                raise ProcessingError(f"Error creating ADR: {str(e)}")
+        
+        elif tool_name == "debug-issue":
+            required_fields = ["description", "type"]
+            for field in required_fields:
+                if field not in request.arguments:
+                    raise InvalidRequestError(f"Missing required field: {field}")
+            
+            issue = await debug.create_issue(
+                title=request.arguments.get("title", "Untitled Issue"),
+                type=request.arguments["type"],
+                description=request.arguments.get("context", {})
+            )
+            steps = await debug.analyze_issue(issue.id)
+            return ToolResponse(content=[{
+                "task_id": str(issue.id),
+                "steps": steps
+            }])
+        
+        elif tool_name == "search-knowledge":
+            if "query" not in request.arguments:
+                raise InvalidRequestError("Missing required field: query")
+            
+            results = await kb.find_similar_patterns(
+                query=request.arguments["query"],
+                pattern_type=request.arguments.get("type"),
+                limit=request.arguments.get("limit", 5)
+            )
+            return ToolResponse(content=[{
+                "patterns": [r.dict() for r in results]
+            }])
+        
+        elif tool_name == "crawl-docs":
+            required_fields = ["urls", "source_type"]
+            for field in required_fields:
+                if field not in request.arguments:
+                    raise InvalidRequestError(f"Missing required field: {field}")
+            
+            try:
+                task = await tasks.create_task(
+                    type=TaskType.DOCUMENTATION_CRAWL,
+                    title=f"Documentation Crawl: {request.arguments['source_type']}",
+                    description="Crawl documentation for insights",
+                    context=request.arguments
+                )
+                # Start crawling immediately
+                try:
+                    docs = await docs_manager.crawl_docs(
+                        urls=request.arguments["urls"],
+                        source_type=request.arguments["source_type"]
+                    )
+                    # Update task with results
+                    task = await tasks.update_task(
+                        task_id=str(task.id),
+                        status=TaskStatus.COMPLETED,
+                        result={
+                            "documents": [doc.model_dump() for doc in docs],
+                            "total_documents": len(docs)
+                        }
+                    )
+                    return ToolResponse(content=[{
+                        "task_id": str(task.id),
+                        "docs_stored": len(docs),
+                        "completed_at": task.completed_at.isoformat() if task.completed_at else None
+                    }])
+                except Exception as e:
+                    import traceback
+                    print(f"Error in crawl-docs: {str(e)}\n{traceback.format_exc()}")
+                    # Update task with error
+                    await tasks.update_task(
+                        task_id=str(task.id),
+                        status=TaskStatus.FAILED,
+                        error=str(e)
+                    )
+                    raise ProcessingError(f"Error crawling docs: {str(e)}")
+            except Exception as e:
+                import traceback
+                print(f"Error in crawl-docs task creation: {str(e)}\n{traceback.format_exc()}")
+                raise ProcessingError(f"Error in crawl-docs task: {str(e)}")
+        
+        elif tool_name == "get-task":
+            if "task_id" not in request.arguments:
+                raise InvalidRequestError("Missing required field: task_id")
+            
+            task = await tasks.get_task(request.arguments["task_id"])
+            if not task:
+                raise ResourceNotFoundError("Task not found")
+            
+            return ToolResponse(content=[{
+                "task_id": str(task.id),
+                "type": task.type,
+                "status": task.status,
+                "result": task.result,
+                "error": task.error,
+                "created_at": task.created_at.isoformat(),
+                "updated_at": task.updated_at.isoformat(),
+                "completed_at": task.completed_at.isoformat() if task.completed_at else None
+            }])
+        
+        else:
+            raise ResourceNotFoundError(f"Unknown tool: {tool_name}")
+            
+    except InvalidRequestError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
         )
-        
-        # Register tools
-        self._register_tools()
+    except ResourceNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e)
+        )
+    except ProcessingError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal server error: {str(e)}"
+        )
 
-    def _register_tools(self):
-        """Register API endpoints for tools."""
-        @self.app.post("/tools/analyze-code")
-        async def analyze_code(request: ToolRequest) -> ToolResponse:
-            code = request.arguments.get("code", "")
-            context = request.arguments.get("context", {})
-            """Analyze code for patterns and architectural insights."""
-            if not code.strip():
-                return ToolResponse(
-                    content=[{
-                        "error": "Code cannot be empty"
-                    }],
-                    isError=True
-                )
-            try:
-                task = await self.task_manager.create_task(
-                    type=TaskType.CODE_ANALYSIS,
-                    title="Code Analysis",
-                    description=f"Analyze code patterns and architecture",
-                    priority=TaskPriority.MEDIUM,
-                    context={
-                        "code": code,
-                        **(context or {})
-                    }
-                )
-                
-                for step in task.steps:
-                    task = await self.task_manager.execute_step(task, step)
-                    if task.status == TaskStatus.FAILED:
-                        return ToolResponse(
-                            content=[{
-                                "error": task.error,
-                                "step": step.id
-                            }],
-                            isError=True
-                        )
-            except Exception as e:
-                return ToolResponse(
-                    content=[{
-                        "error": str(e)
-                    }],
-                    isError=True
-                )
-            
-            return ToolResponse(
-                content=[{
-                    "task_id": task.id,
-                    "results": [step.result for step in task.steps if step.result],
-                    "completed_at": task.completed_at.isoformat()
-                }]
-            )
+@app.on_event("startup")
+async def startup():
+    """Initialize components on startup."""
+    await vector_store.initialize()
+    await kb.initialize()
+    await metrics.initialize()
+    await health.initialize()
 
-        @self.app.post("/tools/create-adr")
-        async def create_adr(request: ToolRequest) -> ToolResponse:
-            title = request.arguments.get("title", "")
-            context = request.arguments.get("context", {})
-            options = request.arguments.get("options", [])
-            decision = request.arguments.get("decision", "")
-            """Create new ADR with analysis."""
-            try:
-                if not title.strip():
-                    return ToolResponse(
-                        content=[{
-                            "error": "Title cannot be empty"
-                        }],
-                        isError=True
-                    )
-                if not decision.strip():
-                    return ToolResponse(
-                        content=[{
-                            "error": "Decision cannot be empty"
-                        }],
-                        isError=True
-                    )
-
-                task = await self.task_manager.create_task(
-                    type=TaskType.ADR_CREATION,
-                    title=f"ADR: {title}",
-                    description=f"Create ADR for {title}",
-                    priority=TaskPriority.HIGH,
-                    context={
-                        "title": title,
-                        "context": context,
-                        "options": options,
-                        "decision": decision
-                    }
-                )
-                
-                for step in task.steps:
-                    task = await self.task_manager.execute_step(task, step)
-                    if task.status == TaskStatus.FAILED:
-                        return ToolResponse(
-                            content=[{
-                                "error": task.error,
-                                "step": step.id
-                            }],
-                            isError=True
-                        )
-            except Exception as e:
-                return ToolResponse(
-                    content=[{
-                        "error": str(e)
-                    }],
-                    isError=True
-                )
-            
-            return ToolResponse(
-                content=[{
-                    "task_id": task.id,
-                    "adr_path": task.context.get("adr_path"),
-                    "completed_at": task.completed_at.isoformat()
-                }]
-            )
-
-        @self.app.post("/tools/debug-issue")
-        async def debug_issue(request: ToolRequest) -> ToolResponse:
-            description = request.arguments.get("description", "")
-            issue_type = request.arguments.get("type", "")
-            context = request.arguments.get("context", {})
-            """Debug issue systematically."""
-            if not description.strip():
-                return ToolResponse(
-                    content=[{
-                        "error": "Description cannot be empty"
-                    }],
-                    isError=True
-                )
-            try:
-                task = await self.task_manager.create_task(
-                    type=TaskType.DEBUG,
-                    title=f"Debug: {description[:50]}...",
-                    description=description,
-                    priority=TaskPriority.HIGH,
-                    context={
-                        "issue_type": type,
-                        "context": context
-                    }
-                )
-                
-                for step in task.steps:
-                    task = await self.task_manager.execute_step(task, step)
-                    if task.status == TaskStatus.FAILED:
-                        return ToolResponse(
-                            content=[{
-                                "error": task.error,
-                                "step": step.id
-                            }],
-                            isError=True
-                        )
-            except Exception as e:
-                return ToolResponse(
-                    content=[{
-                        "error": str(e)
-                    }],
-                    isError=True
-                )
-            
-            return ToolResponse(
-                content=[{
-                    "task_id": task.id,
-                    "steps": [
-                        {
-                            "description": step.description,
-                            "result": step.result
-                        }
-                        for step in task.steps if step.result
-                    ],
-                    "completed_at": task.completed_at.isoformat()
-                }]
-            )
-
-        @self.app.post("/tools/crawl-docs")
-        async def crawl_docs(request: ToolRequest) -> ToolResponse:
-            urls = request.arguments.get("urls", [])
-            source_type = request.arguments.get("source_type", "")
-            """Crawl and store documentation."""
-            if not urls:
-                return ToolResponse(
-                    content=[{
-                        "error": "URLs list cannot be empty"
-                    }],
-                    isError=True
-                )
-            if not source_type.strip():
-                return ToolResponse(
-                    content=[{
-                        "error": "Source type cannot be empty"
-                    }],
-                    isError=True
-                )
-            try:
-                task = await self.task_manager.create_task(
-                    type=TaskType.DOCUMENTATION,
-                    title=f"Documentation: {source_type}",
-                    description=f"Crawl and store {source_type} documentation",
-                    priority=TaskPriority.MEDIUM,
-                    context={
-                        "urls": urls,
-                        "source_type": source_type
-                    }
-                )
-                
-                for step in task.steps:
-                    task = await self.task_manager.execute_step(task, step)
-                    if task.status == TaskStatus.FAILED:
-                        return ToolResponse(
-                            content=[{
-                                "error": task.error,
-                                "step": step.id
-                            }],
-                            isError=True
-                        )
-            except Exception as e:
-                return ToolResponse(
-                    content=[{
-                        "error": str(e)
-                    }],
-                    isError=True
-                )
-            
-            return ToolResponse(
-                content=[{
-                    "task_id": task.id,
-                    "docs_stored": task.context.get("docs_stored", []),
-                    "completed_at": task.completed_at.isoformat()
-                }]
-            )
-
-        @self.app.post("/tools/search-knowledge")
-        async def search_knowledge(request: ToolRequest) -> ToolResponse:
-            query = request.arguments.get("query", "")
-            pattern_type = request.arguments.get("type")
-            limit = request.arguments.get("limit", 5)
-            """Search knowledge base for patterns and solutions."""
-            if not query.strip():
-                return ToolResponse(
-                    content=[{
-                        "error": "Search query cannot be empty"
-                    }],
-                    isError=True
-                )
-            try:
-                pattern_type = PatternType(pattern_type) if pattern_type else None
-                patterns = await self.knowledge_base.find_similar_patterns(
-                    text=query,
-                    type=pattern_type,
-                    limit=limit
-                )
-            except Exception as e:
-                return ToolResponse(
-                    content=[{
-                        "error": str(e)
-                    }],
-                    isError=True
-                )
-            
-            return ToolResponse(
-                content=[{
-                    "id": p.id,
-                    "name": p.name,
-                    "description": p.description,
-                    "type": p.type.value,
-                    "confidence": p.confidence.value,
-                    "similarity": getattr(p, "similarity_score", None)
-                } for p in patterns]
-            )
-
-        @self.app.post("/tools/get-task")
-        async def get_task(request: ToolRequest) -> ToolResponse:
-            task_id = request.arguments.get("task_id", "")
-            """Get task status and results."""
-            if not task_id.strip():
-                return ToolResponse(
-                    content=[{
-                        "error": "Task ID cannot be empty"
-                    }],
-                    isError=True
-                )
-            try:
-                task = await self.task_manager.get_task(task_id)
-                if not task:
-                    return ToolResponse(
-                        content=[{
-                            "error": f"Task not found: {task_id}"
-                        }],
-                        isError=True
-                    )
-            except Exception as e:
-                return ToolResponse(
-                    content=[{
-                        "error": str(e)
-                    }],
-                    isError=True
-                )
-            
-            return ToolResponse(
-                content=[{
-                    "id": task.id,
-                    "type": task.type.value,
-                    "title": task.title,
-                    "status": task.status.value,
-                    "steps": [
-                        {
-                            "id": step.id,
-                            "description": step.description,
-                            "status": step.status.value,
-                            "result": step.result,
-                            "error": step.error,
-                            "completed_at": step.completed_at.isoformat() if step.completed_at else None
-                        }
-                        for step in task.steps
-                    ],
-                    "created_at": task.created_at.isoformat(),
-                    "updated_at": task.updated_at.isoformat(),
-                    "completed_at": task.completed_at.isoformat() if task.completed_at else None,
-                    "error": task.error
-                }]
-            )
-
-    def start(self, host: str = "127.0.0.1", port: int = 3000):
-        """Start the FastAPI server."""
-        import uvicorn
-        logger.info("Starting Codebase Analysis Server...")
-        uvicorn.run(self.app, host=host, port=port)
-        logger.info("Server started successfully")
-
-    async def stop(self):
-        """Stop the FastAPI server."""
-        logger.info("Stopping Codebase Analysis Server...")
-        # FastAPI will handle shutdown
-        logger.info("Server stopped successfully")
+@app.on_event("shutdown")
+async def shutdown():
+    """Cleanup components on shutdown."""
+    await kb.cleanup()
+    await metrics.cleanup()
+    await health.cleanup()

@@ -1,5 +1,5 @@
-"""Utility functions and helpers."""
+"""Utils package initialization."""
 
-from mcp_codebase_insight.utils.logger import get_logger
+from .logger import Logger, get_logger, logger
 
-__all__ = ["get_logger"]
+__all__ = ["Logger", "get_logger", "logger"]

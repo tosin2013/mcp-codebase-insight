@@ -1,6 +1,6 @@
-"""MCP server for intelligent codebase analysis."""
+"""MCP Codebase Insight package."""
 
-from mcp_codebase_insight.version import __version__
-from mcp_codebase_insight.server import CodebaseAnalysisServer
+from .core.config import ServerConfig
 
-__all__ = ["CodebaseAnalysisServer", "__version__"]
+__version__ = "0.1.0"
+__all__ = ["ServerConfig"]

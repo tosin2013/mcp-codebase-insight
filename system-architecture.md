@@ -1,226 +1,140 @@
-# TechPath System Architecture
+# System Architecture - MCP Codebase Insight
 
-This document outlines the architecture of the TechPath system, which consists of two main components:
+This document outlines the system architecture of the MCP Codebase Insight project using various diagrams to illustrate different aspects of the system.
 
-1. A Python-based MCP (Model Context Protocol) server for codebase analysis
-2. A React frontend web application for learning paths
-
-## Overall System Architecture
+## High-Level System Architecture
 
 ```mermaid
-graph TD
-    subgraph "TechPath System"
-        Frontend[React Frontend]
-        Backend[MCP Server]
-        
-        Frontend -- API Calls --> Backend
-        Backend -- API Responses --> Frontend
-        
-        subgraph "Data Storage"
-            Supabase[(Supabase)]
-            Qdrant[(Qdrant Vector DB)]
-            FileSystem[(Local File System)]
-        end
-        
-        Frontend <--> Supabase
-        Backend <--> Qdrant
-        Backend <--> FileSystem
+graph TB
+    Client[Client Applications] --> API[FastAPI Server]
+    API --> Core[Core Services]
+    
+    subgraph Core Services
+        CodeAnalysis[Code Analysis Service]
+        ADR[ADR Management]
+        Doc[Documentation Service]
+        Knowledge[Knowledge Base]
+        Debug[Debug System]
+        Metrics[Metrics & Health]
+        Cache[Caching System]
     end
     
-    subgraph "External Services"
-        Claude[Claude API]
-    end
+    Core --> VectorDB[(Qdrant Vector DB)]
+    Core --> FileSystem[(File System)]
     
-    Backend <--> Claude
+    CodeAnalysis --> VectorDB
+    Knowledge --> VectorDB
+    ADR --> FileSystem
+    Doc --> FileSystem
 ```
 
-## MCP Server Architecture
-
-The MCP (Model Context Protocol) server provides advanced codebase analysis capabilities to LLMs like Claude. It integrates with Qdrant vector database for semantic search across codebases.
+## Component Relationships
 
 ```mermaid
-graph TD
-    subgraph "MCP Server Core Infrastructure"
-        Server[CodebaseAnalysisServer]
-        FastAPI[FastAPI Application]
-        Config[ServerConfig]
-        
-        Server --> FastAPI
-        Server --> Config
-        
-        subgraph "Core Components"
-            VectorStore[Vector Store]
-            Embedder[Sentence Transformer]
-            ADRManager[ADR Manager]
-            DebugSystem[Debug System]
-            DocManager[Documentation Manager]
-            KnowledgeBase[Knowledge Base]
-            PromptManager[Prompt Manager]
-            TaskManager[Task Manager]
-        end
-        
-        Server --> VectorStore
-        Server --> Embedder
-        Server --> ADRManager
-        Server --> DebugSystem
-        Server --> DocManager
-        Server --> KnowledgeBase
-        Server --> PromptManager
-        Server --> TaskManager
-        
-        TaskManager --> ADRManager
-        TaskManager --> DebugSystem
-        TaskManager --> DocManager
-        TaskManager --> KnowledgeBase
-        TaskManager --> PromptManager
+graph LR
+    subgraph Core Components
+        Embeddings[Embeddings Service]
+        VectorStore[Vector Store Service]
+        Knowledge[Knowledge Service]
+        Tasks[Tasks Service]
+        Prompts[Prompts Service]
+        Debug[Debug Service]
+        Health[Health Service]
+        Config[Config Service]
+        Cache[Cache Service]
     end
     
-    subgraph "MCP API Endpoints"
-        AnalyzeCode[/tools/analyze-code]
-        CreateADR[/tools/create-adr]
-        DebugIssue[/tools/debug-issue]
-        CrawlDocs[/tools/crawl-docs]
-        SearchKnowledge[/tools/search-knowledge]
-        GetTask[/tools/get-task]
-    end
-    
-    FastAPI --> AnalyzeCode
-    FastAPI --> CreateADR
-    FastAPI --> DebugIssue
-    FastAPI --> CrawlDocs
-    FastAPI --> SearchKnowledge
-    FastAPI --> GetTask
-    
-    AnalyzeCode --> TaskManager
-    CreateADR --> TaskManager
-    DebugIssue --> TaskManager
-    CrawlDocs --> TaskManager
-    SearchKnowledge --> KnowledgeBase
-    GetTask --> TaskManager
-    
-    VectorStore <--> Qdrant[(Qdrant Database)]
-    DocManager <--> FileSystem[(File System)]
-    KnowledgeBase <--> FileSystem
-    ADRManager <--> FileSystem
-```
-
-## React Frontend Architecture
-
-The TechPath React frontend is a web application designed to provide users with curated learning paths and resources for various technologies, with user authentication, content management, and community features.
-
-```mermaid
-graph TD
-    subgraph "React Frontend"
-        App[App.tsx]
-        Router[React Router]
-        
-        subgraph "Context Providers"
-            AuthProvider[AuthContext]
-        end
-        
-        subgraph "UI Components"
-            Navigation[Navigation]
-            Pages[Page Components]
-            SharedUI[Shared UI Components]
-        end
-        
-        subgraph "Feature Components"
-            Auth[Authentication Components]
-            Admin[Admin Components]
-            LearningPath[Learning Path Components]
-            Portfolio[Portfolio Components]
-            Community[Community Components]
-        end
-        
-        App --> Router
-        App --> AuthProvider
-        Router --> Pages
-        Router --> Auth
-        Router --> Admin
-        Router --> LearningPath
-        Router --> Portfolio
-        Router --> Community
-        
-        Pages --> Navigation
-        Pages --> SharedUI
-    end
-    
-    subgraph "External Services"
-        SupabaseAuth[Supabase Auth]
-        SupabaseDB[Supabase Database]
-    end
-    
-    AuthProvider <--> SupabaseAuth
-    Auth <--> SupabaseAuth
-    Admin <--> SupabaseDB
-    LearningPath <--> SupabaseDB
-    Portfolio <--> SupabaseDB
-    Community <--> SupabaseDB
+    Embeddings --> VectorStore
+    Knowledge --> VectorStore
+    Knowledge --> Embeddings
+    Tasks --> Knowledge
+    Debug --> Knowledge
+    Prompts --> Tasks
+    Health --> Cache
+    Config --> |Configures| Core Components
 ```
 
 ## Data Flow Architecture
 
-This diagram shows how data flows between different components of the system.
-
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Frontend
-    participant Supabase
-    participant MCPServer
-    participant Qdrant
-    participant Claude
+    participant Client
+    participant API
+    participant Knowledge
+    participant Embeddings
+    participant VectorStore
+    participant Cache
     
-    User->>Frontend: Interacts with UI
-    
-    alt Authentication Flow
-        Frontend->>Supabase: Auth Request
-        Supabase-->>Frontend: Auth Response
-        Frontend->>User: Auth Result
-    end
-    
-    alt Learning Path Flow
-        Frontend->>Supabase: Request Learning Paths
-        Supabase-->>Frontend: Learning Path Data
-        Frontend->>User: Display Learning Paths
-    end
-    
-    alt Code Analysis Flow
-        User->>Frontend: Submit Code for Analysis
-        Frontend->>MCPServer: /tools/analyze-code
-        MCPServer->>Qdrant: Vector Search
-        MCPServer->>Claude: Code Analysis Request
-        Claude-->>MCPServer: Analysis Results
-        MCPServer-->>Frontend: Analysis Response
-        Frontend->>User: Display Results
-    end
-    
-    alt ADR Creation Flow
-        User->>Frontend: Request ADR Creation
-        Frontend->>MCPServer: /tools/create-adr
-        MCPServer->>Claude: ADR Generation Request
-        Claude-->>MCPServer: Generated ADR
-        MCPServer-->>Frontend: ADR Response
-        Frontend->>User: Display ADR
+    Client->>API: Request Analysis
+    API->>Cache: Check Cache
+    alt Cache Hit
+        Cache-->>API: Return Cached Result
+    else Cache Miss
+        API->>Knowledge: Process Request
+        Knowledge->>Embeddings: Generate Embeddings
+        Embeddings->>VectorStore: Store/Query Vectors
+        VectorStore-->>Knowledge: Vector Results
+        Knowledge-->>API: Analysis Results
+        API->>Cache: Store Results
+        API-->>Client: Return Results
     end
 ```
 
-## System Goals and Purpose
+## Directory Structure
 
-The TechPath system combines two distinct but complementary components:
+```mermaid
+graph TD
+    Root[mcp-codebase-insight] --> Src[src/]
+    Root --> Tests[tests/]
+    Root --> Docs[docs/]
+    Root --> Scripts[scripts/]
+    Root --> Knowledge[knowledge/]
+    
+    Src --> Core[core/]
+    Src --> Utils[utils/]
+    
+    Core --> Components{Core Components}
+    Components --> ADR[adr.py]
+    Components --> Cache[cache.py]
+    Components --> Config[config.py]
+    Components --> Debug[debug.py]
+    Components --> Doc[documentation.py]
+    Components --> Embed[embeddings.py]
+    Components --> Know[knowledge.py]
+    Components --> Vector[vector_store.py]
+    
+    Knowledge --> Patterns[patterns/]
+    Knowledge --> Tasks[tasks/]
+    Knowledge --> Prompts[prompts/]
+```
 
-1. **MCP Server (Backend)**:
-   - Provides codebase analysis capabilities using vector search and LLM integration
-   - Generates Architectural Decision Records (ADRs)
-   - Offers systematic debugging using Agans' 9 Rules methodology
-   - Manages technical documentation and knowledge retrieval
-   - Serves as an AI-augmented development assistant
+## Security and Authentication Flow
 
-2. **React Frontend (Web Application)**:
-   - Delivers structured learning paths for technology education
-   - Manages user profiles and authentication
-   - Provides portfolio showcase capabilities
-   - Facilitates community interaction and networking
-   - Offers administrative interfaces for content management
+```mermaid
+graph TD
+    Request[Client Request] --> Auth[Authentication Layer]
+    Auth --> Validation[Request Validation]
+    Validation --> RateLimit[Rate Limiting]
+    RateLimit --> Processing[Request Processing]
+    
+    subgraph Security Measures
+        Auth
+        Validation
+        RateLimit
+        Logging[Audit Logging]
+    end
+    
+    Processing --> Logging
+    Processing --> Response[API Response]
+```
 
-Together, these components create a comprehensive platform for both learning about technology and applying that knowledge in practical development scenarios with AI assistance.
+This architecture documentation illustrates the main components and their interactions within the MCP Codebase Insight system. The system is designed to be modular, scalable, and maintainable, with clear separation of concerns between different components.
+
+Key architectural decisions:
+1. Use of FastAPI for high-performance API endpoints
+2. Vector database (Qdrant) for efficient similarity search
+3. Modular core services for different functionalities
+4. Caching layer for improved performance
+5. Clear separation between data storage and business logic
+6. Comprehensive security measures
+7. Structured knowledge management system 

@@ -1,85 +1,86 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "mcp-codebase-insight"
 version = "0.1.0"
-description = "MCP server for intelligent codebase analysis and architectural insights"
+description = "MCP Codebase Insight Server"
+readme = "README.md"
+requires-python = ">=3.11"
+license = {text = "MIT"}
 authors = [
-    { name = "Tosin Akinosho", email = "tosin.akinsoho@gmail.com" }
+    {name = "MCP Team", email = "team@mcp.dev"}
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Software Development :: Documentation",
-    "Topic :: Software Development :: Quality Assurance"
 ]
 dependencies = [
-    "qdrant-client>=1.7.0",
-    "sentence-transformers>=2.3.0",
-    "fastapi>=0.109.0",
-    "uvicorn>=0.27.0",
+    "fastapi>=0.103.2",
+    "uvicorn>=0.23.2",
+    "pydantic>=2.4.2",
+    "starlette>=0.27.0,<0.28.0",
+    "asyncio>=3.4.3",
+    "qdrant-client>=1.13.3",
+    "sentence-transformers>=2.2.2",
+    "torch>=2.0.0",
+    "transformers>=4.34.0",
+    "python-frontmatter>=1.0.0",
+    "markdown>=3.4.4",
+    "PyYAML>=6.0.1",
+    "structlog>=23.1.0",
+    "psutil>=5.9.5",
     "python-dotenv>=1.0.0",
-    "pydantic>=2.0.0",
-    "click>=8.1.0",
-    "aiohttp>=3.9.0",
-    "beautifulsoup4>=4.12.0",
-    "markdown>=3.5.0",
-    "python-frontmatter>=1.1.0",
-    "gitpython>=3.1.0",
-    "rich>=13.7.0",
-    "structlog>=24.1.0",
-    "numpy>=1.26.0",
-    "scikit-learn>=1.4.0",
-    "psutil>=5.9.0"
+    "requests>=2.31.0",
 ]
-requires-python = ">=3.11"
-readme = "README.md"
-license = { text = "MIT" }
 
 [project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
+test = [
+    "pytest>=7.4.2",
+    "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
-    "pytest-mock>=3.12.0",
-    "pytest-aiohttp>=1.0.0",
-    "aioresponses>=0.7.0",
-    "black>=24.1.0",
-    "isort>=5.13.0",
-    "mypy>=1.8.0",
-    "ruff>=0.2.0",
-    "types-beautifulsoup4>=4.12.0",
-    "types-markdown>=3.5.0",
-    "types-aiofiles>=23.2.0",
-    "types-python-dateutil>=2.8.0",
-    "types-requests>=2.31.0",
-    "types-setuptools>=69.0.0",
-    "types-PyYAML>=6.0.0",
-    "debugpy>=1.8.0",
-    "ipython>=8.21.0",
-    "coverage>=7.4.0",
-    "tox>=4.12.0"
+    "httpx>=0.25.0",
+]
+dev = [
+    "black>=23.9.1",
+    "isort>=5.12.0",
+    "mypy>=1.5.1",
+    "flake8>=6.1.0",
+    "bump2version>=1.0.1",
+    "pre-commit>=3.5.0",
+    "pdoc>=14.1.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+[project.urls]
+Homepage = "https://github.com/modelcontextprotocol/mcp-codebase-insight"
+Documentation = "https://github.com/modelcontextprotocol/mcp-codebase-insight/docs"
+Repository = "https://github.com/modelcontextprotocol/mcp-codebase-insight.git"
+Issues = "https://github.com/modelcontextprotocol/mcp-codebase-insight/issues"
 
-[tool.hatch.metadata]
-allow-direct-references = true
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["mcp_codebase_insight*"]
 
 [tool.black]
 line-length = 88
-target-version = ["py311"]
+target-version = ['py311']
 include = '\.pyi?$'
 
 [tool.isort]
 profile = "black"
 multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
 line_length = 88
 
 [tool.mypy]
@@ -88,9 +89,15 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
 
 [tool.pytest.ini_options]
-minversion = "8.0"
+minversion = "6.0"
 addopts = "-ra -q --cov=src --cov-report=term-missing"
 testpaths = ["tests"]
 asyncio_mode = "auto"
@@ -103,34 +110,11 @@ branch = true
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
-    "if __name__ == .__main__.:",
+    "if self.debug:",
     "raise NotImplementedError",
-    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
 ]
-
-[tool.ruff]
-line-length = 88
-target-version = "py311"
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "C",  # flake8-comprehensions
-    "B",  # flake8-bugbear
-]
-ignore = []
-
-[tool.ruff.per-file-ignores]
-"__init__.py" = ["F401"]
-
-[project.urls]
-Homepage = "https://github.com/tosin2013/mcp-codebase-insight"
-Documentation = "https://github.com/tosin2013/mcp-codebase-insight#readme"
-Repository = "https://github.com/tosin2013/mcp-codebase-insight.git"
-
-[project.scripts]
-mcp-codebase-insight = "mcp_codebase_insight.__main__:main"
-
-[tool.ruff.isort]
-known-first-party = ["mcp_codebase_insight"]
+ignore_errors = true
+omit = ["tests/*", "setup.py"]
