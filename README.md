@@ -12,6 +12,7 @@ MCP Codebase Insight is a server component of the Model Context Protocol (MCP) t
 - 📊 **Metrics & Health**: Monitor system health and performance metrics
 - 💾 **Caching**: Efficient caching system for improved performance
 - 🔒 **Security**: Built-in security features and best practices
+- 🔄 **Build Verification**: Automated end-to-end build verification with contextual analysis
 
 ## Quick Start
 
@@ -116,7 +117,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mcp-codebase-insight",
-    version="0.1.0",
+    version="0.2.0",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
@@ -139,10 +140,44 @@ python -m build
 
 3. Install in another project:
 ```bash
-pip install path/to/mcp-codebase-insight/dist/mcp_codebase_insight-0.1.0.tar.gz
+pip install path/to/mcp-codebase-insight/dist/mcp_codebase_insight-0.2.0.tar.gz
 ```
 
 ## Configuration
+
+### Environment Variables
+
+The MCP Codebase Insight server can be configured using the following environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| MCP_HOST | Host address to bind the server to | 127.0.0.1 |
+| MCP_PORT | Port to run the server on | 3000 |
+| MCP_LOG_LEVEL | Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL) | INFO |
+| MCP_DEBUG | Enable debug mode | false |
+| QDRANT_URL | URL of the Qdrant vector database | http://localhost:6333 |
+| QDRANT_API_KEY | API key for the Qdrant vector database | (no default) |
+| MCP_EMBEDDING_MODEL | Name of the embedding model to use | all-MiniLM-L6-v2 |
+| MCP_COLLECTION_NAME | Name of the collection in Qdrant | codebase_patterns |
+| MCP_DOCS_CACHE_DIR | Directory for document cache | docs |
+| MCP_ADR_DIR | Directory for Architecture Decision Records | docs/adrs |
+| MCP_KB_STORAGE_DIR | Directory for knowledge base storage | knowledge |
+| MCP_DISK_CACHE_DIR | Directory for disk cache | cache |
+| MCP_METRICS_ENABLED | Enable metrics collection | true |
+| MCP_CACHE_ENABLED | Enable caching | true |
+| MCP_MEMORY_CACHE_SIZE | Size of the memory cache | 1000 |
+
+You can set these variables in a `.env` file in the project root directory, or through your system's environment variables.
+
+### Using Command Line Arguments
+
+You can also configure some of these settings through command line arguments when starting the server:
+
+```bash
+python -m src.mcp_codebase_insight.server --host 127.0.0.1 --port 3000 --log-level INFO --debug
+```
+
+Command line arguments take precedence over environment variables.
 
 ### Setting up mcp.json
 
@@ -260,3 +295,66 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - 📖 [Documentation](https://github.com/modelcontextprotocol/mcp-codebase-insight/docs)
 - 🐛 [Issue Tracker](https://github.com/modelcontextprotocol/mcp-codebase-insight/issues)
 - 💬 [Discussions](https://github.com/modelcontextprotocol/mcp-codebase-insight/discussions)
+
+## Build Verification
+
+The system includes an automated end-to-end build verification process that ensures all components are correctly integrated and the system functions as intended.
+
+### How Build Verification Works
+
+1. **Relationship Analysis**: First, the system analyzes the codebase to extract relationships between components and stores them in the vector database.
+
+2. **Build Verification**: Next, it triggers an end-to-end build process and verifies success criteria.
+
+3. **Contextual Analysis**: When failures occur, the system uses the vector database to provide contextual information about the failures, potential causes, and recommended actions.
+
+### Running Build Verification
+
+To run the build verification process:
+
+```bash
+./run_build_verification.sh
+```
+
+Options:
+- `--config FILE`: Specify a configuration file (default: verification-config.json)
+- `--output FILE`: Specify an output file for the report (default: logs/build_verification_report.json)
+- `--skip-analysis`: Skip the relationship analysis step
+- `--verbose`: Show verbose output
+
+### CI/CD Integration
+
+The build verification system can be integrated into your CI/CD pipeline using the provided GitHub Actions workflow in `.github/workflows/build-verification.yml`. This workflow automatically runs the build verification process on push to main, pull requests, or manually via workflow dispatch.
+
+## Testing
+
+To run tests for the MCP Codebase Insight project, use the consolidated test runner:
+
+```bash
+# Run all tests
+python run_tests.py --all
+
+# Run only component tests
+python run_tests.py --component
+
+# Run component tests in fully isolated mode (each test in separate process)
+python run_tests.py --component --fully-isolated
+
+# Run integration tests
+python run_tests.py --integration
+
+# Run with coverage report
+python run_tests.py --all --coverage
+```
+
+The test suite uses pytest and is organized into:
+- **Component Tests**: Test individual components in isolation
+- **Integration Tests**: Test components working together
+- **API Tests**: Test the API endpoints
+
+### Testing Framework Features
+
+- **Async Fixture Support**: Full support for async fixtures with proper event loop handling
+- **Test Isolation**: Option to run tests in fully isolated mode to prevent fixture conflicts
+- **Resource Management**: Automatic cleanup of resources after test execution
+- **Flexible Configuration**: Configure test settings via environment variables or command line

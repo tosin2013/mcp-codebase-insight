@@ -6,8 +6,14 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
+from slugify import slugify
+import os
 
 from pydantic import BaseModel
+
+class ADRError(Exception):
+    """Base class for ADR-related errors."""
+    pass
 
 class ADRStatus(str, Enum):
     """ADR status enumeration."""
@@ -57,27 +63,115 @@ class ADRManager:
         self.config = config
         self.adr_dir = config.adr_dir
         self.adr_dir.mkdir(parents=True, exist_ok=True)
-    
+        self.next_adr_number = 1  # Default to 1, will be updated in initialize()
+        self.initialized = False
+        self.adrs: Dict[UUID, ADR] = {}
+        
+    async def initialize(self):
+        """Initialize the ADR manager.
+        
+        This method ensures the ADR directory exists and loads any existing ADRs.
+        """
+        if self.initialized:
+            return
+            
+        try:
+            # Ensure ADR directory exists
+            self.adr_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Calculate next ADR number from existing files
+            max_number = 0
+            for adr_file in self.adr_dir.glob("*.md"):
+                try:
+                    # Extract number from filename (e.g., "0001-title.md")
+                    number = int(adr_file.name.split("-")[0])
+                    max_number = max(max_number, number)
+                except (ValueError, IndexError):
+                    continue
+            
+            self.next_adr_number = max_number + 1
+            
+            # Load any existing ADRs
+            for adr_file in self.adr_dir.glob("*.json"):
+                if adr_file.is_file():
+                    try:
+                        with open(adr_file, "r") as f:
+                            adr_data = json.load(f)
+                            # Convert the loaded data into an ADR object
+                            adr = ADR(**adr_data)
+                            self.adrs[adr.id] = adr
+                    except (json.JSONDecodeError, ValueError) as e:
+                        # Log error but continue processing other files
+                        print(f"Error loading ADR {adr_file}: {e}")
+            
+            self.initialized = True
+        except Exception as e:
+            print(f"Error initializing ADR manager: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize ADR manager: {str(e)}")
+            
+    async def cleanup(self):
+        """Clean up resources used by the ADR manager.
+        
+        This method ensures all ADRs are saved and resources are released.
+        """
+        if not self.initialized:
+            return
+            
+        try:
+            # Save any modified ADRs
+            for adr in self.adrs.values():
+                try:
+                    await self._save_adr(adr)
+                except Exception as e:
+                    print(f"Error saving ADR {adr.id}: {e}")
+            
+            # Clear in-memory ADRs
+            self.adrs.clear()
+        except Exception as e:
+            print(f"Error cleaning up ADR manager: {e}")
+        finally:
+            self.initialized = False
+        
     async def create_adr(
         self,
         title: str,
-        context: Dict,
-        options: List[Dict],
+        context: dict,
+        options: List[dict],
         decision: str,
-        consequences: Optional[Dict[str, List[str]]] = None,
-        metadata: Optional[Dict[str, str]] = None
+        consequences: Optional[Dict[str, List[str]]] = None
     ) -> ADR:
         """Create a new ADR."""
+        adr_id = uuid4()
         now = datetime.utcnow()
+        
+        # Convert context dict to ADRContext
+        adr_context = ADRContext(
+            problem=context["problem"],
+            constraints=context["constraints"],
+            assumptions=context.get("assumptions"),
+            background=context.get("background")
+        )
+        
+        # Convert options list to ADROption objects
+        adr_options = [
+            ADROption(
+                title=opt["title"],
+                pros=opt["pros"],
+                cons=opt["cons"],
+                description=opt.get("description")
+            )
+            for opt in options
+        ]
+        
         adr = ADR(
-            id=uuid4(),
+            id=adr_id,
             title=title,
             status=ADRStatus.PROPOSED,
-            context=ADRContext(**context),
-            options=[ADROption(**opt) for opt in options],
+            context=adr_context,
+            options=adr_options,
             decision=decision,
             consequences=consequences,
-            metadata=metadata,
             created_at=now,
             updated_at=now
         )

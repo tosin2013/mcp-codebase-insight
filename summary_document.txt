@@ -7,11 +7,13 @@ This document provides a summary of the application's architecture, key modules,
 - Placeholder for module descriptions.
 - Include information about the functionality, dependencies, and interaction with other modules.
 
-## Relationships
-- Describe how the modules interact with one another.
-- Mention any patterns such as MVC, Microservices, etc.
+## Key Files by Size
+- See codebase_stats.txt for a complete listing of files by line count
+- The largest files often represent core functionality or areas that might need refactoring
 
 ## High-Level Next Steps for LLM
 1. Identify and generate module summaries for frontend, backend, and database.
 2. Document core workflows and user journeys within the application.
+3. Use the LLM relationship prompt (llm_relationship_prompt.txt) to generate a comprehensive relationship analysis.
+4. Pay special attention to the largest files and their relationships to other components.
 

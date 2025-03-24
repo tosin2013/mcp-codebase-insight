@@ -42,6 +42,62 @@ class DocumentationManager:
         self.config = config
         self.docs_dir = config.docs_cache_dir
         self.docs_dir.mkdir(parents=True, exist_ok=True)
+        self.initialized = False
+        self.documents: Dict[UUID, Document] = {}
+        
+    async def initialize(self):
+        """Initialize the documentation manager.
+        
+        This method ensures the docs directory exists and loads any existing documents.
+        """
+        if self.initialized:
+            return
+            
+        try:
+            # Ensure docs directory exists
+            self.docs_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Load any existing documents
+            for doc_file in self.docs_dir.glob("*.json"):
+                if doc_file.is_file():
+                    try:
+                        with open(doc_file, "r") as f:
+                            doc_data = json.load(f)
+                            # Convert the loaded data into a Document object
+                            doc = Document(**doc_data)
+                            self.documents[doc.id] = doc
+                    except (json.JSONDecodeError, ValueError) as e:
+                        # Log error but continue processing other files
+                        print(f"Error loading document {doc_file}: {e}")
+            
+            self.initialized = True
+        except Exception as e:
+            print(f"Error initializing documentation manager: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize documentation manager: {str(e)}")
+            
+    async def cleanup(self):
+        """Clean up resources used by the documentation manager.
+        
+        This method ensures all documents are saved and resources are released.
+        """
+        if not self.initialized:
+            return
+            
+        try:
+            # Save any modified documents
+            for doc in self.documents.values():
+                try:
+                    await self._save_document(doc)
+                except Exception as e:
+                    print(f"Error saving document {doc.id}: {e}")
+            
+            # Clear in-memory documents
+            self.documents.clear()
+        except Exception as e:
+            print(f"Error cleaning up documentation manager: {e}")
+        finally:
+            self.initialized = False
     
     async def add_document(
         self,

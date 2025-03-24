@@ -35,29 +35,69 @@ class MetricsManager:
         self.metrics_dir = config.docs_cache_dir / "metrics"
         self.metrics_dir.mkdir(parents=True, exist_ok=True)
         self.metrics: Dict[str, List[Metric]] = {}
+        self.initialized = False
     
     async def initialize(self):
         """Initialize metrics collection."""
-        if not self.enabled:
+        if self.initialized:
             return
             
-        # Load existing metrics
-        for path in self.metrics_dir.glob("*.json"):
-            metric_name = path.stem
-            with open(path) as f:
-                data = json.load(f)
-                self.metrics[metric_name] = [
-                    Metric(**metric) for metric in data
-                ]
+        try:
+            if not self.enabled:
+                return
+                
+            # Load existing metrics
+            for path in self.metrics_dir.glob("*.json"):
+                try:
+                    metric_name = path.stem
+                    with open(path) as f:
+                        data = json.load(f)
+                        self.metrics[metric_name] = [
+                            Metric(**metric) for metric in data
+                        ]
+                except Exception as e:
+                    print(f"Error loading metric file {path}: {e}")
+                    
+            self.initialized = True
+        except Exception as e:
+            print(f"Error initializing metrics manager: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize metrics manager: {str(e)}")
     
     async def cleanup(self):
         """Clean up metrics."""
+        if not self.initialized:
+            return
+            
+        try:
+            if not self.enabled:
+                return
+                
+            # Save all metrics
+            for name, metrics in self.metrics.items():
+                try:
+                    await self._save_metrics(name, metrics)
+                except Exception as e:
+                    print(f"Error saving metrics for {name}: {e}")
+        except Exception as e:
+            print(f"Error cleaning up metrics manager: {e}")
+        finally:
+            self.initialized = False
+    
+    async def reset(self):
+        """Reset all metrics."""
         if not self.enabled:
             return
             
-        # Save all metrics
-        for name, metrics in self.metrics.items():
-            await self._save_metrics(name, metrics)
+        # Clear in-memory metrics
+        self.metrics = {}
+        
+        # Remove all metric files
+        for path in self.metrics_dir.glob("*.json"):
+            try:
+                path.unlink()
+            except Exception as e:
+                print(f"Error removing metric file {path}: {e}")
     
     async def record_metric(
         self,

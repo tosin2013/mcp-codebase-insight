@@ -1,4 +1,5 @@
 # Database Module Summary
-- **Purpose**: Describe the database’s role in the application.
+- **Purpose**: Describe the database's role in the application.
 - **Key Components**: List database types, schema designs, and any ORM tools used.
 - **Dependencies**: Mention the relationships with the backend and data sources.
+- **Largest Files**: Identify the largest database-related files and their purposes.

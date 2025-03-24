@@ -48,8 +48,53 @@ class DebugSystem:
     def __init__(self, config):
         """Initialize debug system."""
         self.config = config
-        self.debug_dir = config.docs_cache_dir / "debug"
+        self.debug_dir = Path(config.docs_cache_dir) / "debug"
         self.debug_dir.mkdir(parents=True, exist_ok=True)
+        self.issues: Dict[UUID, Issue] = {}
+        self.initialized = False
+        
+    async def initialize(self) -> None:
+        """Initialize debug system."""
+        if self.initialized:
+            return
+            
+        try:
+            # Load existing issues
+            if self.debug_dir.exists():
+                for issue_file in self.debug_dir.glob("*.json"):
+                    try:
+                        with open(issue_file) as f:
+                            data = json.load(f)
+                            issue = Issue(**data)
+                            self.issues[issue.id] = issue
+                    except Exception as e:
+                        # Log error but continue loading other issues
+                        print(f"Error loading issue {issue_file}: {e}")
+            
+            self.initialized = True
+        except Exception as e:
+            print(f"Error initializing debug system: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize debug system: {str(e)}")
+                    
+    async def cleanup(self) -> None:
+        """Clean up debug system resources."""
+        if not self.initialized:
+            return
+            
+        try:
+            # Save any pending issues
+            for issue in self.issues.values():
+                try:
+                    await self._save_issue(issue)
+                except Exception as e:
+                    print(f"Error saving issue {issue.id}: {e}")
+            # Clear in-memory issues
+            self.issues.clear()
+        except Exception as e:
+            print(f"Error cleaning up debug system: {e}")
+        finally:
+            self.initialized = False
     
     async def create_issue(
         self,

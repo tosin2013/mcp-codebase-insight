@@ -3,11 +3,13 @@
 import asyncio
 import os
 import psutil
+import time
 from datetime import datetime
 from enum import Enum
 from typing import Dict, List, Optional
 
 from pydantic import BaseModel
+import aiohttp
 
 class HealthStatus(str, Enum):
     """Health status enumeration."""
@@ -42,15 +44,58 @@ class HealthManager:
         self.components: Dict[str, ComponentHealth] = {}
         self.check_interval = 60  # seconds
         self.running = False
+        self._monitor_task = None
+        self.initialized = False
     
     async def initialize(self):
         """Initialize health monitoring."""
-        self.running = True
-        asyncio.create_task(self._monitor_health())
+        if self.initialized:
+            return
+            
+        try:
+            self.running = True
+            self._monitor_task = asyncio.create_task(self._monitor_health())
+            
+            # Register core components
+            await self.register_component("qdrant")
+            await self.register_component("disk")
+            await self.register_component("memory")
+            
+            # Initial health check
+            await self.check_health()
+            
+            self.initialized = True
+        except Exception as e:
+            print(f"Error initializing health manager: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize health manager: {str(e)}")
     
     async def cleanup(self):
         """Clean up health monitoring."""
-        self.running = False
+        if not self.initialized:
+            return
+            
+        try:
+            if self.running:
+                self.running = False
+                if self._monitor_task:
+                    try:
+                        # Wait for the task to finish with a timeout
+                        await asyncio.wait_for(self._monitor_task, timeout=5.0)
+                    except asyncio.TimeoutError:
+                        # If it doesn't finish in time, cancel it
+                        self._monitor_task.cancel()
+                        try:
+                            await self._monitor_task
+                        except asyncio.CancelledError:
+                            pass
+                    finally:
+                        self._monitor_task = None
+                        self.components.clear()
+        except Exception as e:
+            print(f"Error cleaning up health manager: {e}")
+        finally:
+            self.initialized = False
     
     async def check_health(self) -> SystemHealth:
         """Check system health."""
@@ -151,14 +196,28 @@ class HealthManager:
     
     async def _check_qdrant(self):
         """Check Qdrant connection health."""
-        # TODO: Implement actual Qdrant health check
-        await self.update_component_health(
-            "qdrant",
-            HealthStatus.HEALTHY,
-            metrics={
-                "response_time": 0.1
-            }
-        )
+        try:
+            # Use REST API health endpoint
+            start_time = time.perf_counter()
+            async with aiohttp.ClientSession() as session:
+                async with session.get("http://localhost:6333/healthz") as response:
+                    response.raise_for_status()
+                    response_time = time.perf_counter() - start_time
+                    
+                    await self.update_component_health(
+                        "qdrant",
+                        HealthStatus.HEALTHY,
+                        message="Qdrant is responding",
+                        metrics={
+                            "response_time": response_time
+                        }
+                    )
+        except Exception as e:
+            await self.update_component_health(
+                "qdrant",
+                HealthStatus.UNHEALTHY,
+                message=f"Qdrant health check failed: {str(e)}"
+            )
     
     async def _check_disk_space(self):
         """Check disk space health."""

@@ -116,20 +116,28 @@ async def test_task_manager(test_config: ServerConfig, test_code: str):
 @pytest.mark.asyncio
 async def test_metrics_manager(test_config: ServerConfig):
     """Test metrics manager functions."""
+    # Override the metrics_enabled setting for this test
+    test_config.metrics_enabled = True
+    
     manager = MetricsManager(test_config)
+    await manager.initialize()
     
-    # Test metric recording
-    await manager.record_metric(
-        "test_metric",
-        MetricType.COUNTER,
-        1.0,
-        {"label": "test"}
-    )
-    
-    # Test metric retrieval
-    metrics = await manager.get_metrics(["test_metric"])
-    assert len(metrics) == 1
-    assert "test_metric" in metrics
+    try:
+        # Test metric recording
+        await manager.record_metric(
+            "test_metric",
+            MetricType.COUNTER,
+            1.0,
+            {"label": "test"}
+        )
+        
+        # Test metric retrieval
+        metrics = await manager.get_metrics(["test_metric"])
+        assert len(metrics) == 1
+        assert "test_metric" in metrics
+    finally:
+        # Cleanup
+        await manager.cleanup()
 
 @pytest.mark.asyncio
 async def test_health_manager(test_config: ServerConfig):
@@ -146,25 +154,29 @@ async def test_health_manager(test_config: ServerConfig):
 async def test_cache_manager(test_config: ServerConfig):
     """Test cache manager functions."""
     manager = CacheManager(test_config)
+    await manager.initialize()  # Initialize the manager
     
-    # Test memory cache
-    manager.put_in_memory("test_key", "test_value")
-    result = manager.get_from_memory("test_key")
-    assert result == "test_value"
-    
-    # Test persistent cache
-    manager.put_in_disk("test_key", "test_value")
-    result = manager.get_from_disk("test_key")
-    assert result == "test_value"
-    
-    # Test combined operations
-    manager.put("combined_key", "combined_value")
-    result = manager.get("combined_key")
-    assert result == "combined_value"
-    
-    # Test removal
-    manager.remove("test_key")
-    assert manager.get("test_key") is None
+    try:
+        # Test memory cache
+        manager.put_in_memory("test_key", "test_value")
+        result = manager.get_from_memory("test_key")
+        assert result == "test_value"
+        
+        # Test persistent cache
+        manager.put_in_disk("test_key", "test_value")
+        result = manager.get_from_disk("test_key")
+        assert result == "test_value"
+        
+        # Test combined operations
+        manager.put("combined_key", "combined_value")
+        result = manager.get("combined_key")
+        assert result == "combined_value"
+        
+        # Test removal
+        manager.remove("test_key")
+        assert manager.get("test_key") is None
+    finally:
+        await manager.cleanup()  # Clean up after tests
 
 @pytest.mark.asyncio
 async def test_documentation_manager(test_config: ServerConfig):

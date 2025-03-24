@@ -51,7 +51,16 @@ graph LR
     Debug --> Knowledge
     Prompts --> Tasks
     Health --> Cache
-    Config --> |Configures| Core Components
+    
+    %% Instead of linking to "Core Components", link to each node individually
+    Config --> Embeddings
+    Config --> VectorStore
+    Config --> Knowledge
+    Config --> Tasks
+    Config --> Prompts
+    Config --> Debug
+    Config --> Health
+    Config --> Cache
 ```
 
 ## Data Flow Architecture

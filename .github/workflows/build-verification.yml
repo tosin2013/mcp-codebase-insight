@@ -1,0 +1,190 @@
+name: Build Verification
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      config_file:
+        description: 'Path to verification config file'
+        required: false
+        default: 'verification-config.json'
+      min_coverage:
+        description: 'Minimum test coverage percentage'
+        required: false
+        default: '80.0'
+      max_failures:
+        description: 'Maximum allowed test failures'
+        required: false
+        default: '0'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Fetch all history for dependencies analysis
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -e .
+    
+    - name: Set up environment
+      run: |
+        # Create required directories
+        mkdir -p logs knowledge cache
+        
+        # Set environment variables
+        echo "QDRANT_URL=${{ secrets.QDRANT_URL }}" >> $GITHUB_ENV
+        echo "QDRANT_API_KEY=${{ secrets.QDRANT_API_KEY }}" >> $GITHUB_ENV
+        echo "COLLECTION_NAME=${{ secrets.COLLECTION_NAME || 'mcp-codebase-insight' }}" >> $GITHUB_ENV
+        echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
+        echo "BUILD_COMMAND=make build" >> $GITHUB_ENV
+        echo "TEST_COMMAND=make test" >> $GITHUB_ENV
+        echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '80.0' }}" >> $GITHUB_ENV
+        echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}" >> $GITHUB_ENV
+        echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server" >> $GITHUB_ENV
+    
+    - name: Create configuration file
+      if: ${{ github.event.inputs.config_file != '' }}
+      run: |
+        cat > ${{ github.event.inputs.config_file }} << EOF
+        {
+          "success_criteria": {
+            "min_test_coverage": ${{ github.event.inputs.min_coverage || '80.0' }},
+            "max_allowed_failures": ${{ github.event.inputs.max_failures || '0' }},
+            "critical_modules": ["mcp_codebase_insight.core.vector_store", "mcp_codebase_insight.core.knowledge", "mcp_codebase_insight.server"],
+            "performance_threshold_ms": 500
+          }
+        }
+        EOF
+    
+    - name: Run build verification
+      id: verify-build
+      run: |
+        # Make sure the test runner is executable
+        chmod +x run_tests.py
+        
+        # Run tests with standardized runner
+        ./run_tests.py --all --clean --isolated --coverage --html
+        TEST_EXIT_CODE=$?
+        
+        CONFIG_ARG=""
+        if [ -n "${{ github.event.inputs.config_file }}" ] && [ -f "${{ github.event.inputs.config_file }}" ]; then
+          CONFIG_ARG="--config ${{ github.event.inputs.config_file }}"
+        fi
+        
+        # Run the build verification with test results
+        python -m scripts.verify_build $CONFIG_ARG --output build-verification-report.json
+        VERIFY_EXIT_CODE=$?
+        
+        # Report failure if either step failed
+        if [ $TEST_EXIT_CODE -ne 0 ] || [ $VERIFY_EXIT_CODE -ne 0 ]; then
+          echo "::set-output name=failed::true"
+        fi
+    
+    - name: Upload verification report
+      uses: actions/upload-artifact@v3
+      with:
+        name: build-verification-report
+        path: build-verification-report.json
+    
+    - name: Parse verification report
+      id: parse-report
+      if: always()
+      run: |
+        if [ -f build-verification-report.json ]; then
+          # Extract summary from report
+          SUMMARY=$(jq -r '.build_verification_report.summary' build-verification-report.json)
+          echo "::set-output name=summary::$SUMMARY"
+          
+          # Extract status
+          STATUS=$(jq -r '.build_verification_report.verification_results.overall_status' build-verification-report.json)
+          echo "::set-output name=status::$STATUS"
+          
+          # Create markdown report
+          echo "## Build Verification Report" > report.md
+          echo "### Status: $STATUS" >> report.md
+          echo "### Summary: $SUMMARY" >> report.md
+          
+          # Add test results
+          echo "### Test Results" >> report.md
+          TOTAL=$(jq -r '.build_verification_report.test_summary.total' build-verification-report.json)
+          PASSED=$(jq -r '.build_verification_report.test_summary.passed' build-verification-report.json)
+          FAILED=$(jq -r '.build_verification_report.test_summary.failed' build-verification-report.json)
+          COVERAGE=$(jq -r '.build_verification_report.test_summary.coverage' build-verification-report.json)
+          
+          echo "- Total Tests: $TOTAL" >> report.md
+          echo "- Passed: $PASSED" >> report.md
+          echo "- Failed: $FAILED" >> report.md
+          echo "- Coverage: $COVERAGE%" >> report.md
+          
+          # Add failure analysis if available
+          if jq -e '.build_verification_report.failure_analysis' build-verification-report.json > /dev/null; then
+            echo "### Failures Detected" >> report.md
+            jq -r '.build_verification_report.failure_analysis[] | "- " + .description' build-verification-report.json >> report.md
+          fi
+          
+          # Add contextual verification if available
+          if jq -e '.build_verification_report.contextual_verification' build-verification-report.json > /dev/null; then
+            echo "### Contextual Analysis" >> report.md
+            jq -r '.build_verification_report.contextual_verification[] | "#### Module: " + .module + "\n- Failure: " + .failure + "\n- Dependencies: " + (.dependencies | join(", ")) + "\n\n**Potential Causes:**\n" + (.potential_causes | map("- " + .) | join("\n")) + "\n\n**Recommended Actions:**\n" + (.recommended_actions | map("- " + .) | join("\n"))' build-verification-report.json >> report.md
+          fi
+        else
+          echo "::set-output name=summary::Build verification failed - no report generated"
+          echo "::set-output name=status::FAILED"
+          
+          echo "## Build Verification Failed" > report.md
+          echo "No report was generated. Check the logs for more information." >> report.md
+        fi
+        
+        cat report.md
+    
+    - name: Create GitHub check
+      uses: LouisBrunner/checks-action@v1.6.2
+      if: always()
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        name: Build Verification
+        conclusion: ${{ steps.parse-report.outputs.status == 'PASS' && 'success' || 'failure' }}
+        output: |
+          {
+            "title": "Build Verification Results",
+            "summary": "${{ steps.parse-report.outputs.summary }}",
+            "text": ${{ toJSON(steps.parse-report.outputs.report) }}
+          }
+    
+    - name: Send Slack notification
+      uses: 8398a7/action-slack@v3
+      if: always()
+      with:
+        status: ${{ steps.parse-report.outputs.status == 'PASS' && 'success' || 'failure' }}
+        fields: repo,message,commit,author,action,eventName,ref,workflow
+        text: |
+          Build Verification: ${{ steps.parse-report.outputs.status }}
+          ${{ steps.parse-report.outputs.summary }}
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      continue-on-error: true
+    
+    - name: Check verification status
+      if: steps.verify-build.outputs.failed == 'true' || steps.parse-report.outputs.status != 'PASS'
+      run: |
+        echo "Build verification failed!"
+        exit 1 

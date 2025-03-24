@@ -6,6 +6,7 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Optional, Union
+import logging
 
 class MemoryCache:
     """In-memory LRU cache."""
@@ -130,28 +131,59 @@ class CacheManager:
         """Initialize cache manager."""
         self.config = config
         self.enabled = config.cache_enabled
-        
-        if self.enabled:
-            self.memory_cache = MemoryCache(
-                max_size=config.memory_cache_size
-            )
-            
-            if config.disk_cache_dir:
-                self.disk_cache = DiskCache(
-                    cache_dir=config.disk_cache_dir
-                )
-            else:
-                self.disk_cache = None
+        self.memory_cache = None
+        self.disk_cache = None
+        self.initialized = False
+        self.logger = logging.getLogger(__name__)
     
+    async def initialize(self) -> None:
+        """Initialize cache components."""
+        if self.initialized:
+            self.logger.debug("Cache manager already initialized")
+            return
+            
+        try:
+            self.logger.debug(f"Initializing cache manager (enabled: {self.enabled})")
+            
+            if self.enabled:
+                self.logger.debug(f"Creating memory cache with size: {self.config.memory_cache_size}")
+                self.memory_cache = MemoryCache(
+                    max_size=self.config.memory_cache_size
+                )
+                
+                # Check if disk cache is configured and enabled
+                if self.config.disk_cache_dir is not None:
+                    self.logger.debug(f"Creating disk cache at: {self.config.disk_cache_dir}")
+                    
+                    # Ensure directory exists (should be created by ServerConfig.create_directories)
+                    if not self.config.disk_cache_dir.exists():
+                        self.logger.debug(f"Creating disk cache directory: {self.config.disk_cache_dir}")
+                        self.config.disk_cache_dir.mkdir(parents=True, exist_ok=True)
+                    
+                    self.disk_cache = DiskCache(
+                        cache_dir=self.config.disk_cache_dir
+                    )
+                else:
+                    self.logger.debug("Disk cache directory not configured, skipping disk cache")
+            else:
+                self.logger.debug("Cache is disabled, not initializing memory or disk cache")
+            
+            self.initialized = True
+            self.logger.debug("Cache manager initialized successfully")
+        except Exception as e:
+            self.logger.error(f"Error initializing cache manager: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize cache manager: {str(e)}")
+
     def get_from_memory(self, key: str) -> Optional[Any]:
         """Get value from memory cache."""
-        if not self.enabled:
+        if not self.enabled or not self.memory_cache:
             return None
         return self.memory_cache.get(key)
     
     def put_in_memory(self, key: str, value: Any) -> None:
         """Put value in memory cache."""
-        if not self.enabled:
+        if not self.enabled or not self.memory_cache:
             return
         self.memory_cache.put(key, value)
     
@@ -201,7 +233,8 @@ class CacheManager:
         if not self.enabled:
             return
             
-        self.memory_cache.remove(key)
+        if self.memory_cache:
+            self.memory_cache.remove(key)
         if self.disk_cache:
             self.disk_cache.remove(key)
     
@@ -210,14 +243,32 @@ class CacheManager:
         if not self.enabled:
             return
             
-        self.memory_cache.clear()
+        if self.memory_cache:
+            self.memory_cache.clear()
         if self.disk_cache:
             self.disk_cache.clear()
     
-    def cleanup(self) -> None:
-        """Clean up expired cache entries."""
-        if not self.enabled:
+    async def cleanup(self) -> None:
+        """Clean up expired cache entries and clear memory cache."""
+        if not self.initialized:
             return
             
-        if self.disk_cache:
-            self.disk_cache.cleanup_expired()
+        try:
+            if not self.enabled:
+                return
+                
+            # Clear memory cache
+            if self.memory_cache:
+                self.memory_cache.clear()
+                
+            # Clean up disk cache
+            if self.disk_cache:
+                self.disk_cache.cleanup_expired()
+        except Exception as e:
+            print(f"Error cleaning up cache manager: {e}")
+        finally:
+            self.initialized = False
+
+    async def clear_all(self) -> None:
+        """Clear all values from cache asynchronously."""
+        self.clear()

@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
-"""Load example patterns into the knowledge base."""
+"""Load example patterns and ADRs into the knowledge base."""
 
 import asyncio
 import json
 from pathlib import Path
 from datetime import datetime
+from uuid import uuid4
 
 from mcp_codebase_insight.core.config import ServerConfig
 from mcp_codebase_insight.core.knowledge import KnowledgeBase, Pattern, PatternType, PatternConfidence
 from mcp_codebase_insight.core.vector_store import VectorStore
 from mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
+from mcp_codebase_insight.core.adr import ADRManager, ADRStatus
 
 # Example patterns data
 PATTERNS = [
@@ -133,8 +135,145 @@ class CircuitBreaker:
     }
 ]
 
+# Example ADRs data
+ADRS = [
+    {
+        "title": "Use FastAPI for REST API Development",
+        "context": {
+            "problem": "We need a modern, high-performance web framework for our REST API",
+            "constraints": [
+                "Must support Python 3.9+",
+                "Must support async/await",
+                "Must have strong type validation",
+                "Must have good documentation"
+            ],
+            "assumptions": [
+                "The team has Python experience",
+                "Performance is a priority"
+            ]
+        },
+        "options": [
+            {
+                "title": "Use Flask",
+                "pros": [
+                    "Simple and familiar",
+                    "Large ecosystem",
+                    "Easy to learn"
+                ],
+                "cons": [
+                    "No built-in async support",
+                    "No built-in validation",
+                    "Requires many extensions"
+                ]
+            },
+            {
+                "title": "Use FastAPI",
+                "pros": [
+                    "Built-in async support",
+                    "Automatic OpenAPI documentation",
+                    "Built-in validation with Pydantic",
+                    "High performance"
+                ],
+                "cons": [
+                    "Newer framework with smaller ecosystem",
+                    "Steeper learning curve for some concepts"
+                ]
+            },
+            {
+                "title": "Use Django REST Framework",
+                "pros": [
+                    "Mature and stable",
+                    "Full-featured",
+                    "Large community"
+                ],
+                "cons": [
+                    "Heavier weight",
+                    "Limited async support",
+                    "Slower than alternatives"
+                ]
+            }
+        ],
+        "decision": "We will use FastAPI for our REST API development due to its modern features, performance, and built-in support for async/await and validation.",
+        "consequences": {
+            "positive": [
+                "Improved API performance",
+                "Better developer experience with type hints and validation",
+                "Automatic API documentation"
+            ],
+            "negative": [
+                "Team needs to learn new concepts (dependency injection, Pydantic)",
+                "Fewer third-party extensions compared to Flask or Django"
+            ]
+        }
+    },
+    {
+        "title": "Vector Database for Semantic Search",
+        "context": {
+            "problem": "We need a database solution for storing and searching vector embeddings for semantic code search",
+            "constraints": [
+                "Must support efficient vector similarity search",
+                "Must scale to handle large codebases",
+                "Must be easy to integrate with Python"
+            ]
+        },
+        "options": [
+            {
+                "title": "Use Qdrant",
+                "pros": [
+                    "Purpose-built for vector search",
+                    "Good Python client",
+                    "Fast similarity search",
+                    "Support for filters"
+                ],
+                "cons": [
+                    "Relatively new project",
+                    "Limited community compared to alternatives"
+                ]
+            },
+            {
+                "title": "Use Elasticsearch with vector capabilities",
+                "pros": [
+                    "Mature product",
+                    "Well-known in industry",
+                    "Many features beyond vector search"
+                ],
+                "cons": [
+                    "More complex to set up",
+                    "Not optimized exclusively for vector search",
+                    "Higher resource requirements"
+                ]
+            },
+            {
+                "title": "Build custom solution with NumPy/FAISS",
+                "pros": [
+                    "Complete control over implementation",
+                    "No external service dependency",
+                    "Can optimize for specific needs"
+                ],
+                "cons": [
+                    "Significant development effort",
+                    "Need to handle persistence manually",
+                    "Maintenance burden"
+                ]
+            }
+        ],
+        "decision": "We will use Qdrant for vector storage and similarity search due to its performance, ease of use, and purpose-built design for vector operations.",
+        "consequences": {
+            "positive": [
+                "Fast similarity search with minimal setup",
+                "Simple API for vector operations",
+                "Good scalability as codebase grows"
+            ],
+            "negative": [
+                "New dependency to maintain",
+                "Team needs to learn Qdrant-specific concepts"
+            ]
+        }
+    }
+]
+
 async def main():
-    """Load patterns into knowledge base."""
+    """Load patterns and ADRs into knowledge base."""
     try:
         # Create config
         config = ServerConfig()
@@ -144,47 +283,78 @@ async def main():
         vector_store = VectorStore(
             url=config.qdrant_url,
             embedder=embedder,
-            collection_name=config.collection_name
+            collection_name=config.collection_name,
+            vector_name="fast-all-minilm-l6-v2"
         )
+        
+        # Initialize vector store
+        await vector_store.initialize()
+        
+        # Create knowledge base
         kb = KnowledgeBase(config, vector_store)
+        await kb.initialize()
         
         # Create patterns directory if it doesn't exist
         patterns_dir = Path("knowledge/patterns")
         patterns_dir.mkdir(parents=True, exist_ok=True)
         
+        # Create ADRs directory if it doesn't exist
+        adrs_dir = Path("docs/adrs")
+        adrs_dir.mkdir(parents=True, exist_ok=True)
+        
         # Load each pattern
+        print("\n=== Loading Patterns ===")
         for pattern_data in PATTERNS:
-            pattern = Pattern(
+            # Save pattern to knowledge base using the correct method signature
+            created = await kb.add_pattern(
                 name=pattern_data["name"],
                 type=PatternType(pattern_data["type"]),
                 description=pattern_data["description"],
                 content=pattern_data["content"],
-                tags=pattern_data["tags"],
-                confidence=PatternConfidence(pattern_data["confidence"])
+                confidence=PatternConfidence(pattern_data["confidence"]),
+                tags=pattern_data["tags"]
             )
             
-            # Save pattern to knowledge base
-            created = await kb.add_pattern(pattern)
             print(f"Added pattern: {created.name}")
             
             # Save pattern to file
             pattern_file = patterns_dir / f"{created.id}.json"
             with open(pattern_file, "w") as f:
                 json.dump({
-                    "id": created.id,
+                    "id": str(created.id),
                     "name": created.name,
                     "type": created.type.value,
                     "description": created.description,
                     "content": created.content,
                     "tags": created.tags,
                     "confidence": created.confidence.value,
-                    "created_at": datetime.now().isoformat()
+                    "created_at": created.created_at.isoformat(),
+                    "updated_at": created.updated_at.isoformat()
                 }, f, indent=2)
         
         print("\nAll patterns loaded successfully!")
         
-        # Test search
-        print("\nTesting pattern search...")
+        # Initialize ADR manager
+        print("\n=== Loading ADRs ===")
+        adr_manager = ADRManager(config)
+        await adr_manager.initialize()
+        
+        # Load each ADR
+        for adr_data in ADRS:
+            created = await adr_manager.create_adr(
+                title=adr_data["title"],
+                context=adr_data["context"],
+                options=adr_data["options"],
+                decision=adr_data["decision"],
+                consequences=adr_data.get("consequences")
+            )
+            
+            print(f"Added ADR: {created.title}")
+        
+        print("\nAll ADRs loaded successfully!")
+        
+        # Test pattern search
+        print("\n=== Testing Pattern Search ===")
         results = await kb.find_similar_patterns(
             "error handling in Python",
             limit=2
@@ -192,10 +362,18 @@ async def main():
         
         print("\nSearch results:")
         for result in results:
-            print(f"- {result.name} (score: {result.similarity_score:.2f})")
+            print(f"- {result.pattern.name} (score: {result.similarity_score:.2f})")
+            
+        # Test ADR listing
+        print("\n=== Testing ADR Listing ===")
+        adrs = await adr_manager.list_adrs()
+        
+        print(f"\nFound {len(adrs)} ADRs:")
+        for adr in adrs:
+            print(f"- {adr.title} (status: {adr.status})")
         
     except Exception as e:
-        print(f"Error loading patterns: {e}")
+        print(f"Error loading examples: {e}")
         raise
 
 if __name__ == "__main__":

@@ -66,6 +66,17 @@ cache/*
 !cache/README.md
 logs/*
 !logs/README.md
+.test_cache/
+test_knowledge/
+build_output.txt
+testreport.txt
+test_env/
+codebase_stats.txt
+dependency_map.txt
+vector_relationship_graph.*
+verification-config.json
+*.dot
+*.json.tmp
 
 # Jupyter Notebook
 .ipynb_checkpoints

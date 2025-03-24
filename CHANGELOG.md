@@ -37,6 +37,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.2.0] - 2025-03-24
+
+### Added
+- None
+
+### Changed
+- Improved async test fixture handling in component tests
+- Enhanced test discovery to properly distinguish between test functions and fixtures
+- Updated component test runner for better isolation and resource management
+
+### Fixed
+- Resolved fixture scope mismatches in async tests
+- Fixed async event loop handling in component tests
+- Corrected test_metadata fixture identification in test_vector_store.py
+
+### Removed
+- None
+
+### Security
+- None
+
 ## [0.1.0] - 2025-03-19
 
 ### Added
@@ -71,5 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Environment configuration
   - Version management
 
-[Unreleased]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.2.0
 [0.1.0]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.1.0

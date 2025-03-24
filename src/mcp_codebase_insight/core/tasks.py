@@ -81,18 +81,85 @@ class TaskManager:
         self.tasks: Dict[UUID, Task] = {}
         self.task_queue: asyncio.Queue = asyncio.Queue()
         self.running = False
+        self._process_task_future = None
+        self.initialized = False
+    
+    async def initialize(self):
+        """Initialize task manager and start processing tasks."""
+        if self.initialized:
+            return
+            
+        try:
+            # Create a fresh queue
+            self.task_queue = asyncio.Queue()
+            
+            # Load existing tasks from disk
+            if self.tasks_dir.exists():
+                for task_file in self.tasks_dir.glob("*.json"):
+                    try:
+                        with open(task_file) as f:
+                            data = json.load(f)
+                            task = Task(**data)
+                            self.tasks[task.id] = task
+                    except Exception as e:
+                        print(f"Error loading task {task_file}: {e}")
+            
+            # Start task processing
+            await self.start()
+            self.initialized = True
+        except Exception as e:
+            print(f"Error initializing task manager: {e}")
+            await self.cleanup()
+            raise RuntimeError(f"Failed to initialize task manager: {str(e)}")
+    
+    async def cleanup(self):
+        """Clean up task manager and stop processing tasks."""
+        if not self.initialized:
+            return
+            
+        try:
+            # Stop task processing
+            await self.stop()
+            
+            # Save any remaining tasks
+            for task in self.tasks.values():
+                if task.status == TaskStatus.IN_PROGRESS:
+                    task.status = TaskStatus.FAILED
+                    task.error = "Server shutdown"
+                    task.updated_at = datetime.utcnow()
+                    await self._save_task(task)
+        except Exception as e:
+            print(f"Error cleaning up task manager: {e}")
+        finally:
+            self.initialized = False
     
     async def start(self):
         """Start task processing."""
-        self.running = True
-        asyncio.create_task(self._process_tasks())
+        if not self.running:
+            self.running = True
+            self._process_task_future = asyncio.create_task(self._process_tasks())
     
     async def stop(self):
         """Stop task processing."""
-        self.running = False
-        # Wait for queue to be empty
-        if not self.task_queue.empty():
-            await self.task_queue.join()
+        if self.running:
+            self.running = False
+            if self._process_task_future:
+                try:
+                    # Wait for the task to finish with a timeout
+                    await asyncio.wait_for(self._process_task_future, timeout=5.0)
+                except asyncio.TimeoutError:
+                    # If it doesn't finish in time, cancel it
+                    self._process_task_future.cancel()
+                    try:
+                        await self._process_task_future
+                    except asyncio.CancelledError:
+                        pass
+                finally:
+                    self._process_task_future = None
+
+            # Create a new empty queue instead of trying to drain the old one
+            # This avoids task_done() issues
+            self.task_queue = asyncio.Queue()
     
     async def _save_task(self, task: Task):
         """Save task to disk."""
@@ -200,7 +267,11 @@ class TaskManager:
         """Process tasks from queue."""
         while self.running:
             try:
-                task = await self.task_queue.get()
+                # Use get with timeout to avoid blocking forever
+                try:
+                    task = await asyncio.wait_for(self.task_queue.get(), timeout=1.0)
+                except asyncio.TimeoutError:
+                    continue
                 
                 # Update status
                 task.status = TaskStatus.IN_PROGRESS
@@ -209,7 +280,7 @@ class TaskManager:
                 try:
                     # Process task based on type
                     if task.type == TaskType.CODE_ANALYSIS:
-                        result = await self._analyze_code(task)
+                        await self._process_code_analysis(task)
                     elif task.type == TaskType.PATTERN_EXTRACTION:
                         result = await self._extract_patterns(task)
                     elif task.type == TaskType.DOCUMENTATION:
@@ -235,37 +306,43 @@ class TaskManager:
                 task.completed_at = datetime.utcnow()
                 task.updated_at = datetime.utcnow()
                 
+                # Mark task as done in the queue
+                self.task_queue.task_done()
+                
             except asyncio.CancelledError:
+                # Don't call task_done() here since we didn't get a task
                 break
                 
             except Exception as e:
                 # Log error but continue processing
                 print(f"Error processing task: {e}")
-                
-            finally:
-                self.task_queue.task_done()
+                # Don't call task_done() here since we might not have gotten a task
     
-    async def _analyze_code(self, task: Task) -> Dict:
-        """Analyze code and extract insights."""
-        if not self.kb:
-            raise ValueError("Knowledge base not available")
+    async def _process_code_analysis(self, task: Task) -> None:
+        """Process a code analysis task."""
+        try:
+            code = task.context.get("code", "")
+            context = task.context.get("context", {})
             
-        code = task.context.get("code")
-        if not code:
-            raise ValueError("No code provided for analysis")
+            patterns = await self.app.state.knowledge.analyze_code(
+                code=code,
+                language=context.get("language", "python"),
+                purpose=context.get("purpose", "")
+            )
             
-        # Find similar patterns
-        patterns = await self.kb.find_similar_patterns(
-            query=code,
-            limit=5
-        )
-        
-        return {
-            "patterns": [p.dict() for p in patterns],
-            "insights": [
-                p.pattern.description for p in patterns
-            ]
-        }
+            await self._update_task(
+                task,
+                status=TaskStatus.COMPLETED,
+                result={"patterns": [p.pattern.model_dump() for p in patterns]}
+            )
+            
+        except Exception as e:
+            self.logger.error(f"Failed to process code analysis task: {str(e)}")
+            await self._update_task(
+                task,
+                status=TaskStatus.FAILED,
+                error=str(e)
+            )
     
     async def _extract_patterns(self, task: Task) -> Dict:
         """Extract patterns from code."""
@@ -356,3 +433,30 @@ class TaskManager:
             "adr_id": str(adr.id),
             "path": f"docs/adrs/{adr.id}.json"
         }
+
+    async def _process_doc_crawl(self, task: Task) -> None:
+        """Process a document crawl task."""
+        try:
+            urls = task.context.get("urls", [])
+            source_type = task.context.get("source_type", "markdown")
+            
+            total_documents = 0
+            for url in urls:
+                try:
+                    await self.doc_manager.crawl_document(url, source_type)
+                    total_documents += 1
+                except Exception as e:
+                    print(f"Failed to crawl document {url}: {str(e)}")
+            
+            task.status = TaskStatus.COMPLETED
+            task.result = {"total_documents": total_documents}
+            task.updated_at = datetime.utcnow()
+            task.completed_at = datetime.utcnow()
+            await self._save_task(task)
+            
+        except Exception as e:
+            print(f"Failed to process doc crawl task: {str(e)}")
+            task.status = TaskStatus.FAILED
+            task.error = str(e)
+            task.updated_at = datetime.utcnow()
+            await self._save_task(task)

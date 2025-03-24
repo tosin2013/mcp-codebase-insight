@@ -1,14 +1,26 @@
 ./.codecov.yml
-./.github/workflows/ci-cd.yml
+./.github/workflows/publish.yml
 ./.pytest_cache/README.md
 ./CHANGELOG.md
 ./CLAUDE.md
 ./CONTRIBUTING.md
 ./PLAN.md
 ./README.md
+./check_qdrant.py
+./check_stored_analysis.py
+./check_vector_config.py
 ./docs/adrs/001_use_docker_for_qdrant.md
+./docs/adrs/002_core_architecture_design.md
+./docs/adrs/002_fastapi_core_architecture.md
+./docs/adrs/003_knowledge_management_system.md
+./docs/adrs/004_caching_and_performance.md
+./docs/adrs/005_codebase_to_adr_mapping.md
+./docs/adrs/006_pypi_deployment_strategy.md
+./docs/adrs/007_testing_strategy.md
+./docs/adrs/README.md
 ./docs/templates/adr.md
 ./examples/use_with_claude.py
+./generate_cursor_rules.sh
 ./htmlcov/coverage_html_cb_6fb7b396.js
 ./htmlcov/status.json
 ./knowledge/index.json
@@ -25,7 +37,9 @@
 ./knowledge/tasks/f76c30dc-c624-47c4-8485-0fb4ff824696.json
 ./knowledge/tasks/fb40d213-6909-48a0-a84e-4d8b50ff441e.json
 ./knowledge/tasks/index.json
+./load_architecture.py
 ./logs/debug/index.json
+./mcp.json
 ./package-lock.json
 ./package.json
 ./prepare_codebase.sh
@@ -33,9 +47,13 @@
 ./scripts/load_example_patterns.py
 ./scripts/macos_install.sh
 ./scripts/start_mcp_server.sh
+./search_analysis.py
 ./server.py
+./setup.py
+./setup_qdrant_collection.py
 ./src/mcp_codebase_insight/__init__.py
 ./src/mcp_codebase_insight/__main__.py
+./src/mcp_codebase_insight/asgi.py
 ./src/mcp_codebase_insight/core/__init__.py
 ./src/mcp_codebase_insight/core/adr.py
 ./src/mcp_codebase_insight/core/cache.py
@@ -50,11 +68,133 @@
 ./src/mcp_codebase_insight/core/prompts.py
 ./src/mcp_codebase_insight/core/tasks.py
 ./src/mcp_codebase_insight/core/vector_store.py
+./src/mcp_codebase_insight/models.py
 ./src/mcp_codebase_insight/server.py
 ./src/mcp_codebase_insight/utils/__init__.py
 ./src/mcp_codebase_insight/utils/logger.py
 ./src/mcp_codebase_insight/version.py
+./start-mcpserver.sh
+./store_analysis.py
+./system-architecture.md
+./test_in_claude.py
+./test_knowledge/patterns/8cca9fe3-32b9-4dbe-bc91-980552282bb2.json
+./test_qdrant.py
+./test_relationships.py
+./tests/README.md
+./tests/components/test_embeddings.py
+./tests/components/test_knowledge_base.py
+./tests/components/test_task_manager.py
+./tests/components/test_vector_store.py
+./tests/config/test_config_and_env.py
 ./tests/conftest.py
-./tests/test_api_endpoints.py
+./tests/integration/test_api_endpoints.py
+./tests/integration/test_server.py
 ./tests/test_core_components.py
 ./tests/test_server.py
+
+
+# CODEBASE STATISTICS
+# Codebase Statistics
+
+## General Statistics
+- Total files:       93
+- Total lines of code: 16757
+
+## Lines by File Extension
+- .0: 16757 lines
+
+## Line Counts by File
+Listing files by line count (largest files first):
+- ./package-lock.json:     4805 lines
+- ./src/mcp_codebase_insight/server.py:      742 lines
+- ./htmlcov/coverage_html_cb_6fb7b396.js:      733 lines
+- ./src/mcp_codebase_insight/core/knowledge.py:      517 lines
+- ./src/mcp_codebase_insight/core/tasks.py:      462 lines
+- ./PLAN.md:      386 lines
+- ./tests/config/test_config_and_env.py:      326 lines
+- ./src/mcp_codebase_insight/core/documentation.py:      316 lines
+- ./prepare_codebase.sh:      294 lines
+- ./src/mcp_codebase_insight/core/errors.py:      286 lines
+- ./tests/integration/test_api_endpoints.py:      286 lines
+- ./docs/adrs/006_pypi_deployment_strategy.md:      284 lines
+- ./server.py:      276 lines
+- ./src/mcp_codebase_insight/core/health.py:      274 lines
+- ./README.md:      262 lines
+- ./src/mcp_codebase_insight/core/prompts.py:      262 lines
+- ./src/mcp_codebase_insight/core/cache.py:      254 lines
+- ./src/mcp_codebase_insight/core/adr.py:      233 lines
+- ./src/mcp_codebase_insight/core/vector_store.py:      230 lines
+- ./tests/conftest.py:      223 lines
+- ./src/mcp_codebase_insight/core/debug.py:      211 lines
+- ./tests/test_core_components.py:      208 lines
+- ./scripts/load_example_patterns.py:      202 lines
+- ./src/mcp_codebase_insight/core/metrics.py:      200 lines
+- ./docs/adrs/005_codebase_to_adr_mapping.md:      188 lines
+- ./docs/adrs/004_caching_and_performance.md:      183 lines
+- ./store_analysis.py:      178 lines
+- ./tests/integration/test_server.py:      168 lines
+- ./docs/adrs/001_use_docker_for_qdrant.md:      150 lines
+- ./system-architecture.md:      148 lines
+- ./docs/adrs/003_knowledge_management_system.md:      136 lines
+- ./docs/adrs/002_fastapi_core_architecture.md:      135 lines
+- ./examples/use_with_claude.py:      135 lines
+- ./CONTRIBUTING.md:      128 lines
+- ./docs/adrs/002_core_architecture_design.md:      127 lines
+- ./test_in_claude.py:      120 lines
+- ./src/mcp_codebase_insight/core/embeddings.py:      119 lines
+- ./generate_cursor_rules.sh:      114 lines
+- ./src/mcp_codebase_insight/utils/logger.py:      111 lines
+- ./docs/adrs/README.md:      108 lines
+- ./scripts/start_mcp_server.sh:      100 lines
+- ./docs/adrs/007_testing_strategy.md:       97 lines
+- ./scripts/macos_install.sh:       96 lines
+- ./tests/components/test_task_manager.py:       93 lines
+- ./tests/test_server.py:       92 lines
+- ./src/mcp_codebase_insight/__main__.py:       90 lines
+- ./tests/components/test_knowledge_base.py:       90 lines
+- ./tests/README.md:       89 lines
+- ./src/mcp_codebase_insight/core/config.py:       86 lines
+- ./load_architecture.py:       78 lines
+- ./CHANGELOG.md:       75 lines
+- ./knowledge/tasks/f76c30dc-c624-47c4-8485-0fb4ff824696.json:       62 lines
+- ./docs/templates/adr.md:       58 lines
+- ./knowledge/tasks/98bb286f-7e47-4783-b09e-828dca4eec04.json:       56 lines
+- ./knowledge/tasks/9cd25031-54b4-4425-9b98-31a8b2242d4e.json:       56 lines
+- ./.codecov.yml:       52 lines
+- ./setup_qdrant_collection.py:       51 lines
+- ./test_qdrant.py:       50 lines
+- ./tests/components/test_vector_store.py:       47 lines
+- ./search_analysis.py:       46 lines
+- ./.github/workflows/publish.yml:       44 lines
+- ./check_stored_analysis.py:       44 lines
+- ./knowledge/tasks/index.json:       43 lines
+- ./setup.py:       41 lines
+- ./check_vector_config.py:       39 lines
+- ./test_relationships.py:       38 lines
+- ./knowledge/tasks/fb40d213-6909-48a0-a84e-4d8b50ff441e.json:       37 lines
+- ./package.json:       37 lines
+- ./knowledge/tasks/c61c56f8-52d3-4589-bd74-31d89d51d0f0.json:       36 lines
+- ./knowledge/tasks/e2ecd8fb-f0da-4189-8e84-c1dfe32f8af3.json:       35 lines
+- ./tests/components/test_embeddings.py:       32 lines
+- ./knowledge/index.json:       31 lines
+- ./src/mcp_codebase_insight/models.py:       30 lines
+- ./knowledge/patterns/architecture-20250319-082807.json:       26 lines
+- ./knowledge/patterns/best_practice-20250319-082807.json:       26 lines
+- ./knowledge/patterns/code-20250319-082807.json:       26 lines
+- ./knowledge/patterns/debug-20250319-082807.json:       26 lines
+- ./knowledge/patterns/solution-20250319-082807.json:       25 lines
+- ./mcp.json:       25 lines
+- ./src/mcp_codebase_insight/version.py:       22 lines
+- ./check_qdrant.py:       21 lines
+- ./start-mcpserver.sh:       20 lines
+- ./CLAUDE.md:       19 lines
+- ./test_knowledge/patterns/8cca9fe3-32b9-4dbe-bc91-980552282bb2.json:       16 lines
+- ./src/mcp_codebase_insight/asgi.py:       10 lines
+- ./.pytest_cache/README.md:        8 lines
+- ./src/mcp_codebase_insight/__init__.py:        6 lines
+- ./src/mcp_codebase_insight/core/__init__.py:        5 lines
+- ./src/mcp_codebase_insight/utils/__init__.py:        5 lines
+- ./htmlcov/status.json:        0 lines
+- ./knowledge/prompts/index.json:        0 lines
+- ./logs/debug/index.json:        0 lines
+- ./references/index.json:        0 lines

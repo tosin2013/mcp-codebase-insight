@@ -20,11 +20,20 @@ install:
 
 # Run tests
 test:
-	python -m pytest tests \
-		--cov=src \
-		--cov-report=html \
-		--cov-report=term \
-		-v
+	./run_tests.py --all --clean --isolated --coverage
+
+# Run specific test categories
+test-api:
+	./run_tests.py --api --isolated
+
+test-integration:
+	./run_tests.py --integration --isolated
+
+test-component:
+	./run_tests.py --component --isolated
+
+test-config:
+	./run_tests.py --config --isolated
 
 # Run linters
 lint:
