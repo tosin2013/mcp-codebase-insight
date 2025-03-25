@@ -43,11 +43,8 @@ jobs:
         ports:
           - 6333:6333
           - 6334:6334
-        options: >-
-          --health-cmd "curl --fail http://localhost:6333/collections || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+        # Remove health check for now to let the container start properly
+        # We'll check connectivity in a separate step
     
     steps:
     - name: Checkout code
@@ -61,10 +58,27 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
     
-    - name: Verify Qdrant connection
+    - name: Wait for Qdrant and verify connection
       run: |
-        echo "Verifying connection to Qdrant service..."
-        curl -s http://localhost:6333/collections || (echo "Qdrant is not available" && exit 1)
+        echo "Waiting for Qdrant to start..."
+        # Install curl if needed
+        apt-get update && apt-get install -y curl || true
+        
+        # Wait for Qdrant to become available (retry for 30 seconds)
+        retry_count=0
+        max_retries=10
+        until curl -s http://localhost:6333/collections || [ $retry_count -eq $max_retries ]
+        do
+          echo "Waiting for Qdrant... (attempt $retry_count of $max_retries)"
+          sleep 3
+          retry_count=$((retry_count+1))
+        done
+        
+        if [ $retry_count -eq $max_retries ]; then
+          echo "Qdrant service failed to become available after 30 seconds"
+          exit 1
+        fi
+        
         echo "Qdrant service is accessible."
     
     - name: Setup private packages
@@ -166,6 +180,46 @@ jobs:
         echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server" >> $GITHUB_ENV
         echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
     
+    - name: Initialize Qdrant collection
+      run: |
+        echo "Creating Qdrant collection for testing..."
+        # Create a basic Python script to initialize the collection
+        cat > init_qdrant.py << EOF
+        import os
+        from qdrant_client import QdrantClient
+        from qdrant_client.http import models
+
+        # Connect to Qdrant
+        client = QdrantClient(url="http://localhost:6333")
+        collection_name = os.environ.get("COLLECTION_NAME", "mcp-codebase-insight-${{ matrix.python-version }}")
+
+        # Check if collection exists
+        collections = client.get_collections().collections
+        collection_names = [c.name for c in collections]
+        
+        if collection_name in collection_names:
+            print(f"Collection {collection_name} already exists, recreating it...")
+            client.delete_collection(collection_name=collection_name)
+        
+        # Create collection with vector size 384 (for all-MiniLM-L6-v2)
+        client.create_collection(
+            collection_name=collection_name,
+            vectors_config=models.VectorParams(
+                size=384,  # Dimension for all-MiniLM-L6-v2
+                distance=models.Distance.COSINE,
+            ),
+        )
+        
+        print(f"Successfully created collection {collection_name}")
+        EOF
+        
+        # Run the initialization script
+        python init_qdrant.py
+        
+        # Verify the collection was created
+        curl -s http://localhost:6333/collections/$COLLECTION_NAME || (echo "Failed to create Qdrant collection" && exit 1)
+        echo "Qdrant collection initialized successfully."
+
     - name: Create configuration file
       if: ${{ github.event.inputs.config_file != '' }}
       run: |

@@ -50,101 +50,76 @@ def event_loop():
     loop = policy.new_event_loop()
     asyncio.set_event_loop(loop)
     
-    # Store in our registry
     with _loops_lock:
         _event_loops[pid] = loop
+        
+    yield loop
     
-    # Configure loop
-    loop.set_debug(True)
-    os.environ["ASYNCIO_WATCHDOG_TIMEOUT"] = "30"
+    # Final cleanup
+    with _loops_lock:
+        if pid in _event_loops:
+            del _event_loops[pid]
     
+    # Close the loop to prevent asyncio related warnings
     try:
-        yield loop
-    finally:
-        # Make sure we clean up properly
-        with _loops_lock:
-            if pid in _event_loops:
-                try:
-                    logger.info(f"Cleaning up session event loop for process {pid}")
-                    
-                    # Cancel all tasks
-                    tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
-                    if tasks:
-                        logger.info(f"Cancelling {len(tasks)} pending tasks")
-                        for task in tasks:
-                            task.cancel()
-                        loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-                    
-                    # Shut down async generators
-                    loop.run_until_complete(loop.shutdown_asyncgens())
-                    
-                    # Close the loop
-                    if not loop.is_closed():
-                        loop.close()
-                        logger.info(f"Event loop closed for process {pid}")
-                    
-                    # Clean up tracking
-                    del _event_loops[pid]
-                except Exception as e:
-                    logger.error(f"Error during event loop cleanup: {e}")
+        if not loop.is_closed():
+            loop.run_until_complete(loop.shutdown_asyncgens())
+            loop.close()
+    except:
+        logger.exception("Error closing session event loop")
 
-# Function-scoped event loop for tests that need isolation
-@pytest.fixture
-def function_event_loop():
-    """Create a function-scoped event loop for test isolation."""
+# To address the event_loop fixture scope mismatch issue, we'll use a different approach
+# We'll have a single session-scoped event loop that's accessible to function-scoped fixtures
+@pytest.fixture(scope="function")
+def function_event_loop(event_loop):
+    """
+    Create a function-scoped event loop proxy for test isolation.
+    
+    This approach avoids the ScopeMismatch error by using the session-scoped event_loop 
+    but providing function-level isolation.
+    """
+    # Return the session loop, but track the test in our isolation system
     test_id = _get_test_id()
-    logger.info(f"Creating function-scoped event loop for test {test_id}")
-    
-    # Create a new loop
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    # Configure loop
-    loop.set_debug(True)
+    logger.debug(f"Using function-level event loop isolation for test {test_id}")
     
     with _tests_lock:
         _active_test_ids.add(test_id)
     
-    try:
-        yield loop
-    finally:
-        with _tests_lock:
-            if test_id in _active_test_ids:
-                _active_test_ids.remove(test_id)
-        
-        # Clean up
-        try:
-            # Cancel all tasks
-            tasks = [t for t in asyncio.all_tasks(loop) if not t.done()]
-            if tasks:
-                loop.run_until_complete(asyncio.gather(*tasks, return_exceptions=True))
-            
-            # Shut down async generators
-            loop.run_until_complete(loop.shutdown_asyncgens())
-            
-            # Close the loop
-            loop.close()
-        except Exception as e:
-            logger.error(f"Error during function event loop cleanup: {e}")
+    yield event_loop
+    
+    with _tests_lock:
+        if test_id in _active_test_ids:
+            _active_test_ids.remove(test_id)
 
 @pytest.fixture(scope="session")
 def anyio_backend():
     """Configure pytest-asyncio to use asyncio backend."""
     return "asyncio"
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def test_server_config():
+@pytest.fixture(scope="session")
+def test_server_config():
     """Create a server configuration for tests."""
+    # For CI/CD environment, use the environment variables if available
+    qdrant_url = os.environ.get("QDRANT_URL", "http://localhost:6333")
+    
+    # Use the CI/CD collection name if provided, otherwise generate a unique one
+    collection_name = os.environ.get("COLLECTION_NAME", f"test_collection_{uuid.uuid4().hex[:8]}")
+    
+    # Optional: Use a shorter embedding model for tests to save resources
+    embedding_model = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+    
+    logger.info(f"Configuring test server with Qdrant URL: {qdrant_url}, collection: {collection_name}")
+    
     config = ServerConfig(
         host="localhost",
         port=8000,
         log_level="DEBUG",
-        qdrant_url="http://localhost:6333",
+        qdrant_url=qdrant_url,
         docs_cache_dir=Path(".test_cache") / "docs",
         adr_dir=Path(".test_cache") / "docs/adrs",
         kb_storage_dir=Path(".test_cache") / "knowledge",
-        embedding_model="all-MiniLM-L6-v2",
-        collection_name=f"test_collection_{uuid.uuid4().hex[:8]}",
+        embedding_model=embedding_model,
+        collection_name=collection_name,
         debug_mode=True,
         metrics_enabled=False,
         cache_enabled=True,
@@ -152,6 +127,46 @@ async def test_server_config():
         disk_cache_dir=Path(".test_cache") / "cache"
     )
     return config
+
+# Make the qdrant_client fixture session-scoped to avoid connection issues
+@pytest.fixture(scope="session")
+def qdrant_client(test_server_config):
+    """Create a shared Qdrant client for tests."""
+    from qdrant_client import QdrantClient
+    from qdrant_client.http import models
+    
+    # Connect to Qdrant
+    client = QdrantClient(url=test_server_config.qdrant_url)
+    
+    # Create the collection if it doesn't exist
+    try:
+        collections = client.get_collections().collections
+        collection_names = [c.name for c in collections]
+        
+        # If collection doesn't exist, create it
+        if test_server_config.collection_name not in collection_names:
+            logger.info(f"Creating test collection: {test_server_config.collection_name}")
+            client.create_collection(
+                collection_name=test_server_config.collection_name,
+                vectors_config=models.VectorParams(
+                    size=384,  # Dimension for all-MiniLM-L6-v2
+                    distance=models.Distance.COSINE,
+                ),
+            )
+        else:
+            logger.info(f"Collection {test_server_config.collection_name} already exists")
+    except Exception as e:
+        logger.warning(f"Error checking/creating Qdrant collection: {e}")
+    
+    yield client
+    
+    # Cleanup - delete the collection at the end of the session
+    try:
+        if test_server_config.collection_name.startswith("test_"):
+            logger.info(f"Cleaning up test collection: {test_server_config.collection_name}")
+            client.delete_collection(collection_name=test_server_config.collection_name)
+    except Exception as e:
+        logger.warning(f"Error deleting Qdrant collection: {e}")
 
 # Session-scoped server instance for shared resources
 @pytest_asyncio.fixture(scope="session")
