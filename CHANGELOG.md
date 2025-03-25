@@ -37,6 +37,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.2.1] - 2025-03-25
+
+### Added
+- Integrated Qdrant Docker container in CI/CD workflow for more realistic testing
+- Added collection initialization step for proper Qdrant setup in CI/CD
+- Created shared Qdrant client fixture for improved test reliability
+
+### Changed
+- Updated Python version requirement from >=3.11 to >=3.9 for broader compatibility
+- Enhanced test fixture scoping to resolve event_loop fixture scope mismatches
+- Improved connection verification for Qdrant in GitHub Actions workflow
+
+### Fixed
+- Resolved fixture scope mismatches in async tests
+- Fixed environment variable handling in test configuration
+
+### Removed
+- None
+
+### Security
+- None
+
 ## [0.2.0] - 2025-03-24
 
 ### Added
@@ -92,6 +114,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Environment configuration
   - Version management
 
-[Unreleased]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.2.1
 [0.2.0]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.2.0
 [0.1.0]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.1.0

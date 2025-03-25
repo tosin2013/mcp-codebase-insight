@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="mcp-codebase-insight",
-    version="0.2.0",
+    version="0.2.1",
     description="Model Context Protocol (MCP) server for codebase analysis and insights",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
