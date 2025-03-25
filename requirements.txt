@@ -3,7 +3,7 @@ fastapi==0.103.2
 uvicorn==0.23.2
 pydantic>=2.4.2
 starlette>=0.27.0,<0.28.0  # Compatible with FastAPI 0.103.2
-asyncio==3.4.3
+# asyncio is part of the Python standard library - removed to avoid conflicts
 aiohttp==3.9.3
 
 # Vector database
@@ -12,8 +12,8 @@ qdrant-client==1.13.3
 # Embeddings
 transformers>=4.34.0
 torch>=2.0.0
-numpy>=2.1.0
-scipy>=1.15.0
+numpy>=1.24.0  # Updated to use an available version
+scipy>=1.11.0  # Updated to ensure compatibility with numpy 1.24+
 
 # Document handling
 python-frontmatter==1.0.0
