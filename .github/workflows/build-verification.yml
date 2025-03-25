@@ -19,10 +19,20 @@ on:
         description: 'Maximum allowed test failures'
         required: false
         default: '0'
+      python_version:
+        description: 'Python version to use for verification'
+        required: false
+        default: '3.9'
 
 jobs:
   verify:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11']
+      fail-fast: false # Continue testing other Python versions even if one fails
+    
+    name: Verify with Python ${{ matrix.python-version }}
     environment:
       name: production
       url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
@@ -33,16 +43,37 @@ jobs:
       with:
         fetch-depth: 0  # Fetch all history for dependencies analysis
     
-    - name: Set up Python
+    - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v4
       with:
-        python-version: '3.9'
+        python-version: ${{ matrix.python-version }}
         cache: 'pip'
     
     - name: Install dependencies
       run: |
-        python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        python -m pip install --upgrade pip setuptools wheel
+        
+        # Make the requirements script executable
+        chmod +x scripts/compile_requirements.sh
+        
+        # Use the compile_requirements.sh script to generate version-specific requirements
+        echo "Using compile_requirements.sh to generate dependencies for Python ${{ matrix.python-version }}..."
+        # Set auto-yes for cleanup to avoid interactive prompts in CI
+        echo "y" | ./scripts/compile_requirements.sh ${{ matrix.python-version }}
+        
+        # Install the generated requirements
+        if [ -f requirements-${{ matrix.python-version }}.txt ]; then
+          echo "Installing from version-specific requirements file..."
+          pip install -r requirements-${{ matrix.python-version }}.txt
+        else
+          echo "Version-specific requirements not found, falling back to standard requirements.txt"
+          pip install -r requirements.txt || {
+            echo "Error installing from requirements.txt, attempting to fix compatibility issues..."
+            grep -v "^#" requirements.txt | cut -d= -f1 | xargs pip install
+          }
+        fi
+        
+        # Install the package in development mode
         pip install -e .
     
     - name: Set up environment
@@ -60,6 +91,7 @@ jobs:
         echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '80.0' }}" >> $GITHUB_ENV
         echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}" >> $GITHUB_ENV
         echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server" >> $GITHUB_ENV
+        echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
     
     - name: Create configuration file
       if: ${{ github.event.inputs.config_file != '' }}
@@ -192,4 +224,4 @@ jobs:
       if: steps.verify-build.outputs.failed == 'true' || steps.parse-report.outputs.status != 'PASS'
       run: |
         echo "Build verification failed!"
-        exit 1 
+        exit 1
