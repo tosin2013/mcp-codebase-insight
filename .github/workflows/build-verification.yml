@@ -49,12 +49,61 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
     
+    - name: Setup private packages
+      run: |
+        # Create local-packages directory if it doesn't exist
+        mkdir -p local-packages
+        
+        # If there are private packages in repositories, clone them here
+        if [ ! -z "${{ secrets.PRIVATE_REPO_URL }}" ]; then
+          echo "Setting up private package repository..."
+          
+          # Configure pip to use the private repository if provided
+          mkdir -p ~/.pip
+          echo "[global]" > ~/.pip/pip.conf
+          echo "index-url = https://pypi.org/simple" >> ~/.pip/pip.conf
+          
+          # Add the private repository with token if available
+          if [ ! -z "${{ secrets.PRIVATE_REPO_TOKEN }}" ]; then
+            echo "extra-index-url = ${{ secrets.PRIVATE_REPO_URL }}:${{ secrets.PRIVATE_REPO_TOKEN }}@simple" >> ~/.pip/pip.conf
+          else
+            echo "extra-index-url = ${{ secrets.PRIVATE_REPO_URL }}/simple" >> ~/.pip/pip.conf
+          fi
+        fi
+        
+        # If there are local Git repositories for dependencies, clone them
+        if [ ! -z "${{ secrets.MCP_SERVER_QDRANT_REPO }}" ]; then
+          echo "Cloning mcp-server-qdrant from repository..."
+          git clone ${{ secrets.MCP_SERVER_QDRANT_REPO }} local-packages/mcp-server-qdrant
+          
+          # Install the package in development mode
+          cd local-packages/mcp-server-qdrant
+          pip install -e .
+          cd ../../
+        fi
+        
+        # Similarly for uvx package if needed
+        if [ ! -z "${{ secrets.UVX_REPO }}" ]; then
+          echo "Cloning uvx from repository..."
+          git clone ${{ secrets.UVX_REPO }} local-packages/uvx
+          
+          # Install the package in development mode
+          cd local-packages/uvx
+          pip install -e .
+          cd ../../
+        fi
+    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip setuptools wheel
         
         # Make the requirements script executable
         chmod +x scripts/compile_requirements.sh
+        
+        # Set environment variables for private package handling
+        export PRIVATE_REPO_URL="${{ secrets.PRIVATE_REPO_URL }}"
+        export PRIVATE_REPO_TOKEN="${{ secrets.PRIVATE_REPO_TOKEN }}"
+        export LOCAL_PACKAGE_PATHS="./local-packages"
         
         # Use the compile_requirements.sh script to generate version-specific requirements
         echo "Using compile_requirements.sh to generate dependencies for Python ${{ matrix.python-version }}..."
@@ -65,6 +114,13 @@ jobs:
         if [ -f requirements-${{ matrix.python-version }}.txt ]; then
           echo "Installing from version-specific requirements file..."
           pip install -r requirements-${{ matrix.python-version }}.txt
+          
+          # Install private packages if they're in a separate file
+          if [ -f requirements-private-${{ matrix.python-version }}.txt ]; then
+            echo "Installing private packages..."
+            # Try to install private packages, but continue even if it fails
+            pip install -r requirements-private-${{ matrix.python-version }}.txt || echo "Warning: Some private packages could not be installed"
+          fi
         else
           echo "Version-specific requirements not found, falling back to standard requirements.txt"
           pip install -r requirements.txt || {
