@@ -81,8 +81,13 @@ jobs:
         # Make sure the test runner is executable
         chmod +x run_tests.py
         
-        # Run tests with standardized runner
-        ./run_tests.py --all --clean --isolated --coverage --html
+        # Run tests with standardized runner - use improved async handling
+        ./run_tests.py --all --clean --isolated --component --fully-isolated --coverage --html
+        
+        # Also run integration tests separately
+        ./run_tests.py --integration --isolated
+        
+        # Store exit code for test command
         TEST_EXIT_CODE=$?
         
         CONFIG_ARG=""
