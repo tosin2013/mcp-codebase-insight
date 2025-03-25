@@ -1,4 +1,4 @@
-#!/bin/bash
+              #!/bin/bash
 # This script starts the MCP Qdrant server with SSE transport
 set -x
 source .venv/bin/activate
@@ -16,5 +16,30 @@ TOOL_STORE_DESCRIPTION="Store reusable code snippets and test results. 'informat
 
 TOOL_FIND_DESCRIPTION="Search for code snippets and test results. The 'query' parameter describes what you're looking for. Returned results will have a 'metadata' field with a 'type' key indicating 'code' or 'test_result'. Use this to find code or analyze test failures."
 
-# Run the MCP Qdrant server with SSE transport
-uvx mcp-server-qdrant --transport sse
+# Default port for the SSE transport (can be overridden with PORT env var)
+PORT="${PORT:-8000}"
+
+# Determine transport type (default to sse if not specified)
+TRANSPORT="${TRANSPORT:-sse}"
+
+# Check if uvx and mcp-server-qdrant are installed
+if ! command -v uvx &> /dev/null; then
+    echo "Error: uvx is not installed. Please install it with: pip install uvx"
+    exit 1
+fi
+
+if ! python -c "import importlib.util; print(importlib.util.find_spec('mcp_server_qdrant') is not None)" | grep -q "True"; then
+    echo "Error: mcp-server-qdrant is not installed. Please install it with: pip install mcp-server-qdrant"
+    exit 1
+fi
+
+echo "Starting MCP Qdrant server with $TRANSPORT transport on port $PORT..."
+
+# Run the MCP Qdrant server with the specified transport
+if [ "$TRANSPORT" = "sse" ]; then
+    # For SSE transport, we need to specify the port
+    uvx mcp-server-qdrant --transport sse --port $PORT
+else
+    # For other transports (e.g., stdio which is the default)
+    uvx mcp-server-qdrant
+fi
