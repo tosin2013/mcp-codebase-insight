@@ -37,6 +37,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 - None
 
+## [0.2.2] - 2025-03-25
+
+### Added
+- Implemented single source of truth for versioning
+
+### Changed
+- Moved version to the package's __init__.py file as the canonical source
+- Updated setup.py to dynamically read version from __init__.py
+- Updated pyproject.toml to use dynamic versioning
+- Synchronized dependencies between setup.py, pyproject.toml and requirements.in
+
+### Fixed
+- Missing dependencies in setup.py and pyproject.toml
+
 ## [0.2.1] - 2025-03-25
 
 ### Added
@@ -114,7 +128,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Environment configuration
   - Version management
 
-[Unreleased]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/modelcontextprotocol/mcp-codebase-insight/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.2.1
 [0.2.0]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.2.0
 [0.1.0]: https://github.com/modelcontextprotocol/mcp-codebase-insight/releases/tag/v0.1.0

@@ -1,8 +1,18 @@
 from setuptools import setup, find_packages
+import re
+import os
+
+# Read version from __init__.py
+with open(os.path.join("src", "mcp_codebase_insight", "__init__.py"), "r") as f:
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]", f.read(), re.M)
+    if version_match:
+        version = version_match.group(1)
+    else:
+        raise RuntimeError("Unable to find version string")
 
 setup(
     name="mcp-codebase-insight",
-    version="0.2.1",
+    version=version,
     description="Model Context Protocol (MCP) server for codebase analysis and insights",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
@@ -15,16 +25,25 @@ setup(
         "fastapi>=0.103.2",
         "uvicorn>=0.23.2",
         "pydantic>=2.4.2",
+        "starlette>=0.27.0,<0.28.0",
+        "asyncio>=3.4.3",
+        "aiohttp>=3.9.0",
         "qdrant-client>=1.13.3",
         "sentence-transformers>=2.2.2",
+        "torch>=2.0.0",
+        "transformers>=4.34.0",
+        "python-frontmatter>=1.0.0",
+        "markdown>=3.4.4",
+        "PyYAML>=6.0.1",
+        "structlog>=23.1.0",
+        "psutil>=5.9.5",
         "python-dotenv>=1.0.0",
-        "aiohttp>=3.8.5",
-        "beautifulsoup4>=4.12.2",
-        "numpy>=1.24.3",
-        "scikit-learn>=1.3.0",
-        "pytest>=7.4.2",
-        "black>=23.9.1",
-        "flake8>=6.1.0",
+        "requests>=2.31.0",
+        "beautifulsoup4>=4.12.0",
+        "scipy>=1.11.0",
+        "numpy>=1.24.0",
+        "python-slugify>=8.0.0",
+        "slugify>=0.0.1",
     ],
     python_requires=">=3.9",
     classifiers=[
