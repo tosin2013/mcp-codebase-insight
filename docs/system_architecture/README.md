@@ -1,4 +1,39 @@
-# MCP Codebase Insight System Architecture
+# System Architecture
+
+> 🚧 **Documentation In Progress**
+> 
+> This documentation is being actively developed. More details will be added soon.
+
+## Overview
+
+This document provides a comprehensive overview of the MCP Codebase Insight system architecture. For detailed workflow information, please see the [Workflows Documentation](../workflows/README.md).
+
+## Architecture Components
+
+### Core Systems
+- Vector Store System
+- Knowledge Base
+- Task Management
+- Health Monitoring
+- Error Handling
+- Metrics Collection
+- Cache Management
+
+### Documentation
+- ADR Management
+- Documentation Tools
+- API Documentation
+
+### Testing
+- Test Framework
+- SSE Testing
+- Integration Testing
+
+## Detailed Documentation
+
+- [Core Components](../components/README.md)
+- [API Reference](../api/README.md)
+- [Development Guide](../development/README.md)
 
 ## System Overview
 

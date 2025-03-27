@@ -2,7 +2,21 @@
 
 ## Overview
 
-This document details the various workflows supported by MCP Codebase Insight, including both user-facing and system-level processes.
+This document details the various workflows supported by MCP Codebase Insight, including both user-facing and system-level processes. These workflows are designed to help developers effectively use and interact with the system's features.
+
+## Quick Navigation
+
+- [User Workflows](#user-workflows)
+  - [Code Analysis](#1-code-analysis-workflow)
+  - [Documentation Management](#2-documentation-management-workflow)
+  - [Testing](#3-testing-workflow)
+- [System Workflows](#system-workflows)
+  - [Vector Store Operations](#1-vector-store-operations)
+  - [Health Monitoring](#2-health-monitoring)
+- [Integration Points](#integration-points)
+- [Best Practices](#best-practices)
+- [Troubleshooting](#troubleshooting)
+- [Next Steps](#next-steps)
 
 ## User Workflows
 
