@@ -1,89 +1,158 @@
 # MCP Codebase Insight
 
-MCP Codebase Insight is a server component of the Model Context Protocol (MCP) that provides intelligent analysis and insights into codebases. It uses vector search and machine learning to understand code patterns, architectural decisions, and documentation.
+> 🚧 **Development in Progress** 
+> 
+> This project is actively under development. Features and documentation are being continuously updated.
 
-## Target Audience
+## Overview
 
-MCP Codebase Insight is designed primarily for:
+MCP Codebase Insight is a system for analyzing and understanding codebases through semantic analysis, pattern detection, and documentation management.
 
-- **Software Developers**: Who want AI-assisted code analysis and improvements
-- **Software Architects**: Managing architecture decisions and technical documentation
-- **DevOps Engineers**: Monitoring system health and integrating with CI/CD pipelines
-- **Technical Leads**: Ensuring best practices and maintaining knowledge management
-- **Data Scientists**: Who can leverage the system for code pattern analysis
+## Current Development Status
 
-This tool is most valuable for teams working on complex codebases that require consistent patterns, architectural oversight, and thorough documentation.
+### Completed Features
+- ✅ Core Vector Store System
+- ✅ Basic Knowledge Base
+- ✅ SSE Integration
+- ✅ Testing Framework
 
-## Features
+### In Progress
+- 🔄 Documentation Management System
+- 🔄 Advanced Pattern Detection
+- 🔄 Performance Optimization
+- 🔄 Integration Testing
 
-- **Code Analysis**: Identify patterns, vulnerabilities, and optimization opportunities
-- **ADR Management**: Track architectural decisions with context
-- **Documentation**: Auto-generate and maintain technical documentation
-- **Knowledge Base**: Store reusable code patterns and solutions
-- **Debug System**: Analyze and fix issues with context awareness
-- **Build Verification**: Automated end-to-end build verification
+### Planned
+- 📋 Extended API Documentation
+- 📋 Custom Pattern Plugins
+- 📋 Advanced Caching Strategies
+- 📋 Deployment Guides
 
-## How It Works
+## Workflows
 
-MCP Codebase Insight operates through a pipeline of intelligent analysis:
+### User Workflows
 
-1. **Code Ingestion**: The system analyzes your codebase, parsing files and understanding their structure.
-2. **Embedding Generation**: Code, documentation, and architectural decisions are converted into vector embeddings.
-3. **Vector Storage**: These embeddings are stored in a Qdrant vector database, enabling semantic search and relationship mapping.
-4. **Contextual Analysis**: When queried, the system retrieves relevant context from the vector database and applies specialized models to generate insights.
-5. **Action Generation**: Based on analysis, the system can recommend actions, generate documentation, or provide debugging assistance.
+1. **Code Analysis**
+   ```mermaid
+   graph TD
+       A[Developer] -->|Submit Code| B[Analysis Request]
+       B --> C{Analysis Type}
+       C -->|Pattern Detection| D[Pattern Analysis]
+       C -->|Semantic Search| E[Vector Search]
+       C -->|Documentation| F[Doc Analysis]
+       D --> G[Results]
+       E --> G
+       F --> G
+       G -->|Display| A
+   ```
 
-![System Architecture](https://via.placeholder.com/800x400?text=MCP+Codebase+Insight+Architecture)
+2. **Documentation Management**
+   ```mermaid
+   graph TD
+       A[Developer] -->|Create/Update| B[Documentation]
+       B --> C{Doc Type}
+       C -->|ADR| D[ADR Processing]
+       C -->|API| E[API Docs]
+       C -->|Guide| F[User Guide]
+       D --> G[Link Analysis]
+       E --> G
+       F --> G
+       G -->|Update| H[Doc Map]
+       H -->|Validate| A
+   ```
 
-*Note: The above URL is a placeholder for an architecture diagram. Replace with an actual diagram path.*
+3. **Testing Flow**
+   ```mermaid
+   graph TD
+       A[Developer] -->|Run Tests| B[Test Suite]
+       B --> C{Test Type}
+       C -->|Unit| D[Unit Tests]
+       C -->|Integration| E[Integration Tests]
+       C -->|SSE| F[SSE Tests]
+       D --> G[Results]
+       E --> G
+       F --> G
+       G -->|Report| A
+   ```
+
+### System Workflows
+
+1. **Vector Store Operations**
+   ```mermaid
+   sequenceDiagram
+       participant User
+       participant Server
+       participant Cache
+       participant VectorStore
+       participant Knowledge
+       
+       User->>Server: Request Analysis
+       Server->>Cache: Check Cache
+       Cache-->>Server: Cache Hit/Miss
+       
+       alt Cache Miss
+           Server->>VectorStore: Generate Embeddings
+           VectorStore->>Knowledge: Get Patterns
+           Knowledge-->>VectorStore: Return Patterns
+           VectorStore-->>Server: Return Results
+           Server->>Cache: Update Cache
+       end
+       
+       Server-->>User: Return Analysis
+   ```
+
+2. **Health Monitoring**
+   ```mermaid
+   sequenceDiagram
+       participant Monitor
+       participant Components
+       participant Tasks
+       participant Alerts
+       
+       loop Every 30s
+           Monitor->>Components: Check Status
+           Components->>Tasks: Verify Tasks
+           Tasks-->>Components: Task Status
+           
+           alt Issues Detected
+               Components->>Alerts: Raise Alert
+               Alerts->>Monitor: Alert Status
+           end
+           
+           Components-->>Monitor: System Status
+       end
+   ```
 
 ## Quick Start
 
-For detailed installation and usage instructions, please refer to our [documentation](./docs/README.md).
+1. **Installation**
+   ```bash
+   pip install mcp-codebase-insight
+   ```
 
-> **Important Requirement**: MCP Codebase Insight requires a running Qdrant vector database instance to function properly. See [Qdrant Setup](./docs/getting-started/installation.md#qdrant-setup) for installation instructions.
+2. **Basic Usage**
+   ```python
+   from mcp_codebase_insight import CodebaseAnalyzer
+   
+   analyzer = CodebaseAnalyzer()
+   results = analyzer.analyze_code("path/to/code")
+   ```
 
-### Basic Installation
-
-```bash
-# Install the package
-pip install mcp-codebase-insight
-
-# Set up basic environment variables
-export MCP_HOST=127.0.0.1
-export MCP_PORT=3000
-export QDRANT_URL=http://localhost:6333
-export MCP_DOCS_CACHE_DIR=./docs
-export MCP_ADR_DIR=./docs/adrs
-export MCP_KB_STORAGE_DIR=./knowledge
-export MCP_DISK_CACHE_DIR=./cache
-
-# Start the server
-mcp-codebase-insight --host 127.0.0.1 --port 3000 --log-level INFO
-```
-
-> **Note:** For a complete list of environment variables and configuration options, see the [Configuration Guide](./docs/getting-started/configuration.md).
-
-### Using Docker
-
-```bash
-docker run -p 3000:3000 \
-    --env-file .env \
-    -v $(pwd)/docs:/app/docs \
-    -v $(pwd)/knowledge:/app/knowledge \
-    tosin2013/mcp-codebase-insight
-```
+3. **Running Tests**
+   ```bash
+   pytest tests/
+   ```
 
 ## Documentation
 
-For complete documentation, please see the [docs directory](./docs/):
+- [System Architecture](docs/system_architecture/README.md)
+- [Core Components](docs/components/README.md)
+- [API Reference](docs/api/README.md)
+- [Development Guide](docs/development/README.md)
 
-- [Installation Guide](./docs/getting-started/installation.md)
-- [Configuration Guide](./docs/getting-started/configuration.md)
-- [API Reference](./docs/usage/api-reference.md)
-- [IDE Integration](./docs/usage/ide-integration.md)
-- [Development Guide](./docs/development/contributing.md)
-- [Troubleshooting](./docs/troubleshooting/common-issues.md)
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## License
 

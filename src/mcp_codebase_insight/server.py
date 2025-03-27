@@ -33,6 +33,7 @@ from .core.tasks import TaskManager, TaskStatus, TaskType, TaskPriority
 from .core.cache import CacheManager
 from .core.vector_store import VectorStore, SearchResult
 from .core.embeddings import SentenceTransformerEmbedding
+from .core.sse import MCP_CodebaseInsightServer  # Import the MCP server implementation
 from .core.errors import (
     InvalidRequestError,
     ResourceNotFoundError,
@@ -57,23 +58,58 @@ async def lifespan(app: FastAPI):
             logger.info("Starting server initialization...")
             await server_state.initialize()
             logger.info("Server components initialized successfully")
-        else:
-            logger.info("Server already initialized, skipping initialization")
+            
+            # Now that all components are initialized, create and mount the MCP server
+            logger.info("Initializing MCP server with SSE transport...")
+            try:
+                mcp_server = MCP_CodebaseInsightServer(server_state)
+                logger.info("MCP server created successfully")
+                
+                # Get the Starlette app for SSE
+                starlette_app = mcp_server.get_starlette_app()
+                if not starlette_app:
+                    raise RuntimeError("Failed to get Starlette app from MCP server")
+                
+                # Mount the MCP SSE application
+                logger.info("Mounting MCP SSE transport at /mcp...")
+                app.mount("/mcp", starlette_app)
+                
+                # Add a diagnostic SSE endpoint
+                @app.get("/mcp/sse-diagnostic")
+                async def sse_diagnostic():
+                    """Diagnostic SSE endpoint."""
+                    return Response(
+                        content="data: SSE diagnostic endpoint is working\n\n",
+                        media_type="text/event-stream",
+                        headers={
+                            "Cache-Control": "no-cache",
+                            "Connection": "keep-alive",
+                            "X-Accel-Buffering": "no"
+                        }
+                    )
+                
+                logger.info("MCP SSE transport mounted successfully")
+                
+            except Exception as e:
+                logger.error(f"Failed to create/mount MCP server: {e}", exc_info=True)
+                raise RuntimeError(f"Failed to create/mount MCP server: {e}")
+            
+            # Register the MCP server instance with the state
+            logger.info("Registering MCP server with server state...")
+            server_state.update_component_status(
+                "mcp_server",
+                ComponentStatus.INITIALIZED,
+                instance=mcp_server
+            )
         
         yield
         
     except Exception as e:
-        logger.error(f"Failed to initialize server: {e}", exc_info=True)
+        logger.error(f"Error during server lifecycle: {e}", exc_info=True)
         raise
     finally:
-        try:
-            # Only cleanup if we're initialized
-            if server_state.initialized:
-                logger.info("Beginning server cleanup...")
-                await server_state.cleanup()
-                logger.info("Server cleanup completed successfully")
-        except Exception as e:
-            logger.error(f"Error during server cleanup: {e}", exc_info=True)
+        # Cleanup code here if needed
+        pass
 
 def verify_initialized(request: Request = None):
     """Dependency to verify server initialization.
@@ -126,16 +162,41 @@ def create_app(config: ServerConfig) -> FastAPI:
     logger.debug("Storing configuration in server state...")
     server_state.config = config
     
+    # Register MCP server component (but don't initialize yet)
+    # It will be properly initialized after other components
+    logger.debug("Registering MCP server component...")
+    if "mcp_server" not in server_state.list_components():
+        server_state.register_component("mcp_server")
+    
+    # The actual MCP server will be created and mounted during the lifespan
+    # This ensures all dependencies are initialized first
+    
     # Health check endpoint
     @app.get("/health")
     async def health_check():
         """Check server health status."""
-        status = server_state.get_component_status()
-        logger.debug(f"Health check - Status: {status}")
+        mcp_available = False
+        
+        # Check if MCP server is initialized and mounted
+        mcp_server = server_state.get_component("mcp_server")
+        
+        # Check if MCP server is initialized and if the /mcp route is mounted
+        if mcp_server:
+            mcp_available = True
+            logger.debug("MCP server is available")
+        else:
+            # Check if /mcp route is mounted directly
+            for route in app.routes:
+                if hasattr(route, "path") and route.path == "/mcp":
+                    mcp_available = True
+                    logger.debug("MCP server is mounted at /mcp")
+                    break
+        
         return {
-            "status": "healthy" if server_state.initialized else "initializing",
+            "status": "ok",
             "initialized": server_state.initialized,
-            "components": status
+            "mcp_available": mcp_available,
+            "instance_id": server_state.instance_id
         }
     
     # Vector store search endpoint
@@ -1634,4 +1695,3 @@ def run():
 
 if __name__ == "__main__":
     run()
-

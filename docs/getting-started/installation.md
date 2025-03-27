@@ -1,162 +1,164 @@
 # Installation Guide
 
-This guide covers different methods to install and set up MCP Codebase Insight.
+This guide will walk you through the process of installing MCP Codebase Insight and its dependencies.
 
-## Using as an MCP Server
+## Prerequisites
 
-1. Create an `mcp.json` file in your project:
-```json
-{
-  "mcpServers": {
-    "codebase-insight": {
-      "command": "mcp-codebase-insight",
-      "args": [
-        "--host",
-        "127.0.0.1",
-        "--port",
-        "3000",
-        "--log-level",
-        "INFO"
-      ],
-      "env": {
-        "PYTHONPATH": "${workspaceRoot}",
-        "MCP_HOST": "127.0.0.1",
-        "MCP_PORT": "3000",
-        "MCP_LOG_LEVEL": "INFO",
-        "QDRANT_URL": "http://localhost:6333",
-        "MCP_DOCS_CACHE_DIR": "${workspaceRoot}/docs",
-        "MCP_ADR_DIR": "${workspaceRoot}/docs/adrs",
-        "MCP_KB_STORAGE_DIR": "${workspaceRoot}/knowledge",
-        "MCP_DISK_CACHE_DIR": "${workspaceRoot}/cache"
-      }
-    }
-  }
-}
+Before installing MCP Codebase Insight, ensure you have the following:
+
+- Python 3.11 or higher
+- pip (Python package installer)
+- Git
+- Docker (optional, for containerized deployment)
+- 4GB RAM minimum (8GB recommended)
+- 2GB free disk space
+
+## System Requirements
+
+### Operating Systems
+- Linux (Ubuntu 20.04+, CentOS 8+)
+- macOS (10.15+)
+- Windows 10/11 with WSL2
+
+### Python Dependencies
+- FastAPI
+- Pydantic
+- httpx
+- sentence-transformers
+- qdrant-client
+
+## Installation Methods
+
+### 1. Using pip (Recommended)
+
+```bash
+# Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install MCP Codebase Insight
+pip install mcp-codebase-insight
+
+# Verify installation
+mcp-codebase-insight --version
 ```
 
-> **Note:** `${workspaceRoot}` is a placeholder that refers to your project's root directory. If configuring manually, replace it with the absolute path to your project directory.
+### 2. Using Docker
 
-2. Install the package in your project:
 ```bash
+# Pull the Docker image
+docker pull tosin2013/mcp-codebase-insight:latest
+
+# Create necessary directories
+mkdir -p docs knowledge cache
+
+# Run the container
+docker run -p 3000:3000 \
+    --env-file .env \
+    -v $(pwd)/docs:/app/docs \
+    -v $(pwd)/knowledge:/app/knowledge \
+    -v $(pwd)/cache:/app/cache \
+    tosin2013/mcp-codebase-insight
+```
+
+### 3. From Source
+
+```bash
+# Clone the repository
+git clone https://github.com/modelcontextprotocol/mcp-codebase-insight.git
+cd mcp-codebase-insight
+
+# Create and activate virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Install in development mode
+pip install -e .
+```
+
+## Environment Setup
+
+1. Create a `.env` file in your project root:
+
+```bash
+MCP_HOST=127.0.0.1
+MCP_PORT=3000
+QDRANT_URL=http://localhost:6333
+MCP_DOCS_CACHE_DIR=./docs
+MCP_ADR_DIR=./docs/adrs
+MCP_KB_STORAGE_DIR=./knowledge
+MCP_DISK_CACHE_DIR=./cache
+LOG_LEVEL=INFO
+```
+
+2. Create required directories:
+
+```bash
+mkdir -p docs/adrs knowledge cache
+```
+
+## Post-Installation Steps
+
+1. **Vector Database Setup**
+   - Follow the [Qdrant Setup Guide](qdrant_setup.md) to install and configure Qdrant
+
+2. **Verify Installation**
+   ```bash
+   # Start the server
+   mcp-codebase-insight --host 127.0.0.1 --port 3000
+   
+   # In another terminal, test the health endpoint
+   curl http://localhost:3000/health
+   ```
+
+3. **Initial Configuration**
+   - Configure authentication (if needed)
+   - Set up logging
+   - Configure metrics collection
+
+## Common Installation Issues
+
+### 1. Dependencies Installation Fails
+```bash
+# Try upgrading pip
+pip install --upgrade pip
+
+# Install wheel
+pip install wheel
+
+# Retry installation
 pip install mcp-codebase-insight
 ```
 
-3. Start the server:
+### 2. Port Already in Use
 ```bash
-mcp-codebase-insight --host 127.0.0.1 --port 3000 --log-level INFO
+# Check what's using port 3000
+lsof -i :3000  # On Linux/macOS
+netstat -ano | findstr :3000  # On Windows
+
+# Use a different port
+mcp-codebase-insight --port 3001
 ```
 
-> **Note:** Ensure the port in your startup command (3000 in this example) matches the port specified in your mcp.json configuration.
-
-## Qdrant Setup
-
-> **Important**: MCP Codebase Insight requires a running Qdrant vector database instance. Without Qdrant, the system cannot store or search vector embeddings.
-
-### Option 1: Using Docker (Recommended)
-
-The easiest way to set up Qdrant is using Docker:
-
+### 3. Permission Issues
 ```bash
-# Pull and run Qdrant container
-docker pull qdrant/qdrant
-docker run -p 6333:6333 -p 6334:6334 \
-    -v $(pwd)/qdrant_data:/qdrant/storage \
-    qdrant/qdrant
+# Fix directory permissions
+chmod -R 755 docs knowledge cache
 ```
 
-This will start Qdrant on port 6333 (API) and 6334 (web UI).
+## Next Steps
 
-### Option 2: Using Docker Compose
+- Read the [Configuration Guide](configuration.md) for detailed setup options
+- Follow the [Quick Start Tutorial](quickstart.md) to begin using the system
+- Check the [Best Practices](../development/best-practices.md) for optimal usage
 
-You can set up both MCP Codebase Insight and Qdrant using Docker Compose. See the [Docker Setup](./docker-setup.md#using-docker-compose) guide for details.
+## Support
 
-### Option 3: Manual Installation
+If you encounter any issues during installation:
 
-For manual installation, follow the official Qdrant documentation:
-[Qdrant Installation Guide](https://qdrant.tech/documentation/guides/installation/)
-
-### Verifying Qdrant Installation
-
-To verify that Qdrant is running properly:
-
-```bash
-# Check Qdrant health
-curl http://localhost:6333/health
-```
-
-You should receive a response indicating the service is healthy.
-
-## Local Development Installation
-
-1. Prerequisites:
-   - Python 3.11+ (3.12 recommended)
-   - Rust 1.70+ (for building dependencies)
-   - Qdrant vector database
-
-2. Clone the repository:
-   ```bash
-   git clone https://github.com/tosin2013/mcp-codebase-insight.git
-   cd mcp-codebase-insight
-   ```
-
-3. Create a virtual environment:
-   ```bash
-   python -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-   > **Best Practice:** Always create the virtual environment in your project directory and activate it in each new terminal session before working on the project.
-
-4. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-5. Configure environment:
-   ```bash
-   cp .env.example .env
-   # Edit .env with your settings
-   ```
-
-6. Run the server:
-   ```bash
-   uvicorn src.mcp_codebase_insight.server:app --reload
-   ```
-
-   > **Warning:** The `--reload` flag is for development only. Do not use it in production environments as it may cause performance issues and unexpected behavior.
-
-## Building for Distribution
-
-To use codebase-insight in other directories, you'll need to build and install it:
-
-1. Create a `setup.py`:
-```python
-from setuptools import setup, find_packages
-
-setup(
-    name="mcp-codebase-insight",
-    version="0.2.0",
-    packages=find_packages(where="src"),
-    package_dir={"": "src"},
-    install_requires=[
-        "fastapi>=0.103.2",
-        "uvicorn>=0.23.2",
-        "pydantic>=2.4.2",
-        "qdrant-client>=1.13.3",
-        "sentence-transformers>=2.2.2",
-        "python-dotenv>=1.0.0"
-    ],
-    python_requires=">=3.11",
-)
-```
-
-2. Build the package:
-```bash
-pip install build
-python -m build
-```
-
-3. Install in another project:
-```bash
-pip install path/to/mcp-codebase-insight/dist/mcp_codebase_insight-0.2.0.tar.gz
-```
+1. Check the [Troubleshooting Guide](../troubleshooting/common-issues.md)
+2. Search existing [GitHub Issues](https://github.com/modelcontextprotocol/mcp-codebase-insight/issues)
+3. Open a new issue if needed

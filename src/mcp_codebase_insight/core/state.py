@@ -9,23 +9,14 @@ import threading
 from datetime import datetime
 import logging
 import uuid
-from enum import Enum
 
 from ..utils.logger import get_logger
 from .config import ServerConfig
 from .di import DIContainer
 from .task_tracker import TaskTracker
+from .component_status import ComponentStatus
 
 logger = get_logger(__name__)
-
-class ComponentStatus(Enum):
-    """Component initialization status."""
-    UNINITIALIZED = "uninitialized"
-    INITIALIZING = "initializing"
-    INITIALIZED = "initialized"
-    FAILED = "failed"
-    CLEANING = "cleaning"
-    CLEANED = "cleaned"
 
 @dataclass
 class ComponentState:
@@ -204,7 +195,8 @@ class ServerState:
                     "task_manager",
                     "analysis_engine",
                     "adr_manager",
-                    "knowledge_base"
+                    "knowledge_base",
+                    "mcp_server"  
                 ]
                 
                 for component in components:
@@ -300,6 +292,15 @@ class ServerState:
                                 ComponentStatus.INITIALIZED,
                                 instance={"status": "mocked"}
                             )
+                        
+                        # For mcp_server component (placeholder)
+                        elif component == "mcp_server":
+                            # Mock implementation for mcp server
+                            self.update_component_status(
+                                "mcp_server",
+                                ComponentStatus.INITIALIZED,
+                                instance={"status": "mocked"}
+                            )
                             
                     except Exception as e:
                         error_msg = f"Failed to initialize {component}: {str(e)}"
@@ -311,7 +312,8 @@ class ServerState:
                         )
                 
                 # Set server as initialized if all critical components are initialized
-                critical_components = ["vector_store", "task_manager"]
+                critical_components = ["vector_store", "task_manager", "mcp_server"]  
+                
                 all_critical_initialized = all(
                     self._components.get(c) and 
                     self._components[c].status == ComponentStatus.INITIALIZED 

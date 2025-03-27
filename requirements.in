@@ -46,6 +46,7 @@ slugify>=0.0.1  # For direct 'from slugify import slugify' imports
 # MCP Server
 uvx>=0.4.0
 mcp-server-qdrant>=0.2.0
+mcp>=0.1.0  # Base MCP package for SSE transport
 
 # Required for pip-compile
 pip-tools>=7.3.0

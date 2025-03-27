@@ -2,63 +2,255 @@
 
 import asyncio
 import logging
-from typing import Any, Callable, Dict, List, Optional
+import json
+from typing import Any, Callable, Dict, List, Optional, Tuple
+from datetime import datetime
+from starlette.applications import Starlette
+from starlette.routing import Mount, Route
+from starlette.requests import Request
+from starlette.responses import Response, JSONResponse, RedirectResponse, StreamingResponse
+import uuid
+from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
+from starlette.middleware.cors import CORSMiddleware
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
-from starlette.applications import Starlette
-from starlette.routing import Mount, Route
-
 from ..utils.logger import get_logger
 
 logger = get_logger(__name__)
 
-
-def create_sse_server(mcp_server: FastMCP) -> Starlette:
-    """Create a Starlette application that handles SSE connections and message handling.
-    
-    This function initializes an SSE transport layer for the MCP protocol,
-    providing real-time communication capabilities through Server-Sent Events.
+async def send_heartbeats(queue: asyncio.Queue, interval: int = 30):
+    """Send periodic heartbeat messages to keep the connection alive.
     
     Args:
-        mcp_server: The FastMCP instance to connect to the SSE transport
+        queue: The queue to send heartbeats to
+        interval: Time between heartbeats in seconds
+    """
+    while True:
+        try:
+            await queue.put({"type": "heartbeat", "timestamp": datetime.utcnow().isoformat()})
+            await asyncio.sleep(interval)
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Error sending heartbeat: {e}")
+            await asyncio.sleep(1)  # Brief pause before retrying
+
+class CodebaseInsightSseTransport(SseServerTransport):
+    """Custom SSE transport implementation for Codebase Insight."""
+    
+    def __init__(self, endpoint: str):
+        """Initialize the SSE transport.
+        
+        Args:
+            endpoint: The endpoint path for SSE connections
+        """
+        super().__init__(endpoint)
+        self.connections = {}
+        self.message_queue = asyncio.Queue()
+        logger.info(f"Initializing SSE transport with endpoint: {endpoint}")
+        
+    async def handle_sse(self, request: Request) -> StreamingResponse:
+        """Handle incoming SSE connection requests.
+        
+        Args:
+            request: The incoming HTTP request
+            
+        Returns:
+            StreamingResponse for the SSE connection
+        """
+        connection_id = str(uuid.uuid4())
+        queue = asyncio.Queue()
+        self.connections[connection_id] = queue
+        
+        logger.info(f"New SSE connection established: {connection_id}")
+        logger.debug(f"Request headers: {dict(request.headers)}")
+        logger.debug(f"Active connections: {len(self.connections)}")
+        
+        async def event_generator():
+            try:
+                logger.debug(f"Starting event generator for connection {connection_id}")
+                heartbeat_task = asyncio.create_task(send_heartbeats(queue))
+                logger.debug(f"Heartbeat task started for connection {connection_id}")
+                
+                while True:
+                    try:
+                        message = await queue.get()
+                        logger.debug(f"Connection {connection_id} received message: {message}")
+                        
+                        if isinstance(message, dict):
+                            data = json.dumps(message)
+                        else:
+                            data = str(message)
+                            
+                        yield f"data: {data}\n\n"
+                        logger.debug(f"Sent message to connection {connection_id}")
+                        
+                    except asyncio.CancelledError:
+                        logger.info(f"Event generator cancelled for connection {connection_id}")
+                        break
+                    except Exception as e:
+                        logger.error(f"Error in event generator for connection {connection_id}: {e}")
+                        break
+                        
+            finally:
+                heartbeat_task.cancel()
+                try:
+                    await heartbeat_task
+                except asyncio.CancelledError:
+                    pass
+                    
+                if connection_id in self.connections:
+                    del self.connections[connection_id]
+                logger.info(f"Event generator cleaned up for connection {connection_id}")
+                logger.debug(f"Remaining active connections: {len(self.connections)}")
+                
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+                "Access-Control-Allow-Origin": "*",  # Allow CORS
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Access-Control-Allow-Methods": "GET, POST"
+            }
+        )
+        
+    async def handle_message(self, request: Request) -> Response:
+        """Handle incoming messages to be broadcast over SSE.
+        
+        Args:
+            request: The incoming HTTP request with the message
+            
+        Returns:
+            HTTP response indicating message handling status
+        """
+        try:
+            message = await request.json()
+            
+            # Broadcast to all connections
+            for queue in self.connections.values():
+                await queue.put(message)
+                
+            return JSONResponse({"status": "message sent"})
+            
+        except Exception as e:
+            logger.error(f"Error handling message: {e}")
+            return JSONResponse(
+                {"error": str(e)},
+                status_code=500
+            )
+            
+    async def send(self, message: Any) -> None:
+        """Send a message to all connected clients.
+        
+        Args:
+            message: The message to send
+        """
+        # Put message in queue for all connections
+        for queue in self.connections.values():
+            await queue.put(message)
+            
+    async def broadcast(self, message: Any) -> None:
+        """Broadcast a message to all connected clients.
+        
+        Args:
+            message: The message to broadcast
+        """
+        await self.send(message)
+        
+    async def connect(self) -> Tuple[MemoryObjectReceiveStream, MemoryObjectSendStream]:
+        """Create a new SSE connection.
+        
+        Returns:
+            Tuple of receive and send streams for the connection
+        """
+        # Create memory object streams for this connection
+        receive_stream = MemoryObjectReceiveStream()
+        send_stream = MemoryObjectSendStream()
+        
+        # Store the connection
+        connection_id = str(uuid.uuid4())
+        self.connections[connection_id] = send_stream
+        
+        return receive_stream, send_stream
+        
+    async def disconnect(self, connection_id: str) -> None:
+        """Disconnect a client.
+        
+        Args:
+            connection_id: The ID of the connection to disconnect
+        """
+        if connection_id in self.connections:
+            del self.connections[connection_id]
+            logger.info(f"Disconnected client: {connection_id}")
+
+async def verify_routes(app: Starlette) -> Dict[str, List[str]]:
+    """Verify and log all registered routes in the application.
+    
+    Args:
+        app: The Starlette application to verify
         
     Returns:
-        A Starlette application configured to handle SSE connections
+        Dictionary mapping route paths to their methods
     """
-    logger.info("Creating SSE server transport layer")
-    transport = SseServerTransport("/messages/")
-    
-    async def handle_sse(request):
-        """Handle incoming SSE connections.
-        
-        This function establishes an SSE connection with the client and connects
-        it to the MCP server for bidirectional communication.
-        """
-        logger.info(f"New SSE connection request from {request.client}")
-        try:
-            async with transport.connect_sse(
-                request.scope, request.receive, request._send
-            ) as streams:
-                logger.debug("SSE connection established, starting MCP server")
-                # Updated for MCP v1.5.0 which doesn't use create_initialization_options
-                await mcp_server.run(
-                    streams[0], 
-                    streams[1]
-                )
-        except Exception as e:
-            logger.error(f"Error in SSE connection: {e}", exc_info=True)
-            raise
-            
-    # Create Starlette routes for SSE and message handling
-    routes = [
-        Route("/sse/", endpoint=handle_sse),
-        Mount("/messages/", app=transport.handle_post_message),
-    ]
-    
-    logger.debug("SSE server transport layer created with routes: /sse/ and /messages/")
-    return Starlette(routes=routes)
+    routes = {}
+    for route in app.routes:
+        if isinstance(route, Mount):
+            logger.info(f"Mount point: {route.path}")
+            # Recursively verify mounted routes
+            mounted_routes = await verify_routes(route.app)
+            for path, methods in mounted_routes.items():
+                full_path = f"{route.path}{path}"
+                routes[full_path] = methods
+        else:
+            routes[route.path] = route.methods
+            logger.info(f"Route: {route.path}, methods: {route.methods}")
+    return routes
 
+def create_sse_server(mcp_server: Optional[FastMCP] = None) -> Starlette:
+    """Create an SSE server instance.
+    
+    Args:
+        mcp_server: Optional FastMCP instance to use. If not provided, a new one will be created.
+        
+    Returns:
+        Starlette application configured for SSE
+    """
+    app = Starlette(debug=True)  # Enable debug mode for better error reporting
+    
+    # Create SSE transport
+    transport = CodebaseInsightSseTransport("/sse")
+    
+    # Add CORS middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],  # Allow all origins
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+        expose_headers=["*"]
+    )
+    
+    async def health_check(request: Request) -> JSONResponse:
+        """Health check endpoint."""
+        return JSONResponse({
+            "status": "ok",
+            "timestamp": datetime.utcnow().isoformat(),
+            "connections": len(transport.connections)
+        })
+    
+    # Add routes
+    app.add_route("/health", health_check, methods=["GET"])
+    app.add_route("/sse", transport.handle_sse, methods=["GET"])
+    app.add_route("/message", transport.handle_message, methods=["POST"])
+    
+    logger.info("Created SSE server with routes:")
+    asyncio.create_task(verify_routes(app))
+    
+    return app
 
 class MCP_CodebaseInsightServer:
     """MCP server implementation for Codebase Insight.
@@ -74,9 +266,31 @@ class MCP_CodebaseInsightServer:
             server_state: The global server state providing access to components
         """
         self.state = server_state
-        self.mcp_server = FastMCP("MCP-Codebase-Insight")
+        self.mcp_server = FastMCP()
         self.tools_registered = False
+        self._starlette_app = None  # Cache the Starlette app
         logger.info("MCP Codebase Insight server initialized")
+        
+    async def cleanup(self):
+        """Clean up resources used by the MCP server.
+        
+        This method ensures proper shutdown of the MCP server and
+        releases any resources it might be holding.
+        """
+        logger.info("Cleaning up MCP server resources")
+        # If the MCP server has a shutdown or cleanup method, call it here
+        # For now, just log the cleanup attempt
+        self.tools_registered = False
+        self._starlette_app = None
+        logger.info("MCP server cleanup completed")
+    
+    def is_initialized(self) -> bool:
+        """Check if the MCP server is properly initialized.
+        
+        Returns:
+            True if the server is initialized and ready to use, False otherwise
+        """
+        return self.tools_registered and self._starlette_app is not None
         
     def register_tools(self):
         """Register all available tools with the MCP server.
@@ -90,26 +304,43 @@ class MCP_CodebaseInsightServer:
             
         logger.info("Registering tools with MCP server")
         
-        # Vector Store Search Tool
-        self._register_vector_search_tool()
+        # Check if critical dependencies are available
+        critical_dependencies = ["vector_store", "knowledge_base", "task_manager", "adr_manager"]
+        missing_dependencies = []
         
-        # Knowledge Base Tool
-        self._register_knowledge_tool()
+        for dependency in critical_dependencies:
+            if not self.state.get_component(dependency):
+                missing_dependencies.append(dependency)
+                
+        if missing_dependencies:
+            logger.warning(f"Some critical dependencies are not available: {', '.join(missing_dependencies)}")
+            logger.warning("Tools requiring these dependencies will not be registered")
+            # Don't fail registration completely - continue with available tools
         
-        # ADR Management Tool
-        self._register_adr_tool()
+        # Register available tools
+        try:
+            self._register_vector_search()
+            self._register_knowledge()
+            self._register_adr()
+            self._register_task()
+            
+            # Mark tools as registered even if some failed
+            self.tools_registered = True
+            logger.info("MCP tools registration completed")
+        except Exception as e:
+            logger.error(f"Error registering MCP tools: {e}", exc_info=True)
+            # Don't mark as registered if there was an error
         
-        # Task Management Tool
-        self._register_task_tool()
-        
-        self.tools_registered = True
-        logger.info("All tools registered with MCP server")
-        
-    def _register_vector_search_tool(self):
+    def _register_vector_search(self):
         """Register the vector search tool with the MCP server."""
         vector_store = self.state.get_component("vector_store")
         if not vector_store:
             logger.warning("Vector store component not available, skipping tool registration")
+            return
+            
+        # Verify that the vector store is properly initialized
+        if not hasattr(vector_store, 'search') or not callable(getattr(vector_store, 'search')):
+            logger.warning("Vector store component does not have a search method, skipping tool registration")
             return
             
         async def vector_search(query: str, limit: int = 5, threshold: float = 0.7, 
@@ -155,7 +386,7 @@ class MCP_CodebaseInsightServer:
         )
         logger.debug("Vector search tool registered")
         
-    def _register_knowledge_tool(self):
+    def _register_knowledge(self):
         """Register the knowledge base tool with the MCP server."""
         knowledge_base = self.state.get_component("knowledge_base")
         if not knowledge_base:
@@ -194,7 +425,7 @@ class MCP_CodebaseInsightServer:
         )
         logger.debug("Knowledge search tool registered")
         
-    def _register_adr_tool(self):
+    def _register_adr(self):
         """Register the ADR management tool with the MCP server."""
         adr_manager = self.state.get_component("adr_manager")
         if not adr_manager:
@@ -233,7 +464,7 @@ class MCP_CodebaseInsightServer:
         )
         logger.debug("ADR management tool registered")
         
-    def _register_task_tool(self):
+    def _register_task(self):
         """Register the task management tool with the MCP server."""
         task_tracker = self.state.get_component("task_tracker")
         if not task_tracker:
@@ -262,10 +493,12 @@ class MCP_CodebaseInsightServer:
         """Get the Starlette application for the MCP server.
         
         Returns:
-            A Starlette application handling SSE connections for the MCP server
+            Configured Starlette application
         """
         # Ensure tools are registered
         self.register_tools()
         
         # Create and return the Starlette app for SSE
-        return create_sse_server(self.mcp_server)
+        if self._starlette_app is None:
+            self._starlette_app = create_sse_server(self.mcp_server)
+        return self._starlette_app

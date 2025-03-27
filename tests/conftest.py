@@ -174,49 +174,120 @@ async def session_test_server(event_loop, test_server_config):
     """Create a session-scoped server instance for shared tests."""
     logger.info(f"Creating session-scoped test server instance")
     
-    # Create server with isolated state
+    # Create the server instance with the provided test configuration
     server = CodebaseAnalysisServer(test_server_config)
-    instance_id = f"test_server_{uuid.uuid4().hex}"
-    server.state = get_isolated_server_state(instance_id)
     
+    # Initialize the server state
+    logger.info("Initializing server state...")
+    await server.state.initialize()
+    logger.info("Server state initialized successfully")
+    
+    # Initialize the server
+    logger.info("Initializing server...")
+    await server.initialize()
+    logger.info("Server initialized successfully")
+    
+    # Create and mount MCP server
+    from mcp_codebase_insight.core.sse import MCP_CodebaseInsightServer, create_sse_server
+    from mcp_codebase_insight.core.state import ComponentStatus
+    
+    logger.info("Creating and mounting MCP server...")
     try:
-        # Initialize state
-        if not server.state.initialized:
-            logger.info("Initializing server state...")
-            await server.state.initialize()
-            logger.info("Server state initialized successfully")
+        # Create SSE server
+        sse_server = create_sse_server()
+        logger.info("Created SSE server")
         
-        # Initialize server
-        if not server.is_initialized:
-            logger.info("Initializing server...")
-            await server.initialize()
-            logger.info("Server initialized successfully")
+        # Mount SSE server
+        server.app.mount("/mcp", sse_server)
+        logger.info("Mounted SSE server at /mcp")
         
-        yield server
-    finally:
-        try:
-            # Clean up server state
-            logger.info("Starting server cleanup...")
-            
-            # Check server.state exists and is initialized
-            if hasattr(server, 'state') and server.state and hasattr(server.state, 'initialized') and server.state.initialized:
-                logger.info("Cleaning up server state...")
-                try:
-                    await server.state.cleanup()
-                    logger.info("Server state cleanup completed")
-                except Exception as e:
-                    logger.error(f"Error during server state cleanup: {e}")
-            
-            # Check server is initialized
-            if hasattr(server, 'is_initialized') and server.is_initialized:
-                logger.info("Shutting down server...")
-                try:
-                    await server.shutdown()
-                    logger.info("Server shutdown completed")
-                except Exception as e:
-                    logger.error(f"Error during server shutdown: {e}")
-        except Exception as e:
-            logger.error(f"Error during overall server cleanup: {e}")
+        # Create MCP server instance
+        mcp_server = MCP_CodebaseInsightServer(server.state)
+        logger.info("Created MCP server instance")
+        
+        # Register tools
+        mcp_server.register_tools()
+        logger.info("Registered MCP server tools")
+        
+        # Update component status
+        server.state.update_component_status(
+            "mcp_server",
+            ComponentStatus.INITIALIZED,
+            instance=mcp_server
+        )
+        logger.info("Updated MCP server component status")
+        
+    except Exception as e:
+        logger.error(f"Failed to create/mount MCP server: {e}", exc_info=True)
+        raise RuntimeError(f"Failed to create/mount MCP server: {e}")
+    
+    # Add test-specific endpoints
+    @server.app.get("/direct-sse")
+    async def direct_sse_endpoint():
+        """Test endpoint for direct SSE connection."""
+        from starlette.responses import Response
+        return Response(
+            content="data: Direct SSE test endpoint\n\n",
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    
+    @server.app.get("/mcp/sse-mock")
+    async def mock_sse_endpoint():
+        """Mock SSE endpoint for testing."""
+        from starlette.responses import Response
+        return Response(
+            content="data: Mock SSE endpoint\n\n",
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no"
+            }
+        )
+    
+    @server.app.get("/debug/routes")
+    async def debug_routes():
+        """Debug endpoint to list all registered routes."""
+        from starlette.responses import Response
+        routes = []
+        for route in server.app.routes:
+            route_info = {
+                "path": getattr(route, "path", str(route)),
+                "methods": getattr(route, "methods", set()),
+                "name": getattr(route, "name", None),
+                "endpoint": str(getattr(route, "endpoint", None))
+            }
+            routes.append(route_info)
+        return {"routes": routes}
+    
+    @server.app.get("/health")
+    async def health_check_test():
+        """Health check endpoint for testing."""
+        mcp_server = server.state.get_component("mcp_server")
+        return {
+            "status": "ok",
+            "initialized": server.state.initialized,
+            "mcp_available": mcp_server is not None,
+            "instance_id": server.state.instance_id,
+            "components": server.state.list_components()
+        }
+    
+    # Start the server
+    logger.info("Starting test server...")
+    await server.start()
+    logger.info("Test server started successfully")
+    
+    yield server
+    
+    # Cleanup
+    logger.info("Cleaning up test server...")
+    await server.stop()
+    logger.info("Test server cleanup complete")
 
 # Function-scoped server instance for isolated tests
 @pytest_asyncio.fixture
@@ -373,6 +444,14 @@ def test_adr():
     }
 
 # Define custom pytest hooks
+def pytest_collection_modifyitems(items):
+    """Add the isolated_event_loop marker to integration tests."""
+    for item in items:
+        module_name = item.module.__name__ if hasattr(item, 'module') else ''
+        if 'integration' in module_name:
+            # Add our custom marker to all integration tests
+            item.add_marker(pytest.mark.isolated_event_loop)
+
 def pytest_configure(config):
     """Configure pytest with our specific settings."""
     config.addinivalue_line(
@@ -458,12 +537,3 @@ def cleanup_server_states(event_loop: asyncio.AbstractEventLoop):
                         task.cancel()
     except Exception as e:
         logger.error(f"Error cancelling tasks: {e}")
-
-# Custom test marker for isolated event loops
-def pytest_collection_modifyitems(items):
-    """Add the isolated_event_loop marker to integration tests."""
-    for item in items:
-        module_name = item.module.__name__ if hasattr(item, 'module') else ''
-        if 'integration' in module_name:
-            # Add our custom marker to all integration tests
-            item.add_marker(pytest.mark.isolated_event_loop)

@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--integration", action="store_true", help="Run integration tests")
     parser.add_argument("--config", action="store_true", help="Run configuration tests")
     parser.add_argument("--api", action="store_true", help="Run API endpoint tests")
+    parser.add_argument("--sse", action="store_true", help="Run SSE endpoint tests")
     
     # Specific test selection
     parser.add_argument("--test", type=str, help="Run a specific test (e.g., test_health_check)")
@@ -64,7 +65,7 @@ def build_command(args, module_path=None) -> List[List[str]]:
     # If a specific module path is provided, use it
     if module_path:
         test_paths.append(module_path)
-    elif args.all or (not any([args.component, args.integration, args.config, args.api, args.test, args.file])):
+    elif args.all or (not any([args.component, args.integration, args.config, args.api, args.sse, args.test, args.file])):
         # When running all tests and using fully isolated mode, we'll handle this differently in main()
         if args.fully_isolated:
             return []
@@ -90,6 +91,8 @@ def build_command(args, module_path=None) -> List[List[str]]:
             test_paths.append("tests/config/")
         if args.api:
             test_paths.append("tests/integration/test_api_endpoints.py")
+        if args.sse:
+            test_paths.append("tests/integration/test_sse.py")
         if args.file:
             test_paths.append(args.file)
         if args.test:

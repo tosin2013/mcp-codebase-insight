@@ -22,10 +22,10 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "fastapi>=0.103.2",
+    "fastapi>=0.109.0",
     "uvicorn>=0.23.2",
     "pydantic>=2.4.2",
-    "starlette>=0.27.0,<0.28.0",
+    "starlette>=0.35.0",
     "asyncio>=3.4.3",
     "aiohttp>=3.9.0",
     "qdrant-client>=1.13.3",
@@ -44,6 +44,9 @@ dependencies = [
     "python-slugify>=8.0.0",
     "slugify>=0.0.1",
     "numpy>=1.24.0",
+    # "uvx>=0.4.0",  # Temporarily commented out for development installation
+    "mcp-server-qdrant>=0.2.0",
+    "mcp>=1.5.0,<1.6.0",  # Pin to MCP 1.5.0 for API compatibility
 ]
 
 [project.optional-dependencies]
