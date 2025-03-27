@@ -1,6 +1,8 @@
 # Configuration Guide
 
-This guide covers all configuration options available in MCP Codebase Insight and how to use them effectively.
+> 🚧 **Documentation In Progress**
+> 
+> This documentation is being actively developed. More details will be added soon.
 
 ## Configuration Methods
 
@@ -17,80 +19,56 @@ Priority order (highest to lowest):
 
 ## Environment Variables
 
-### Core Settings
+### Required Variables
 ```bash
 # Server Configuration
-MCP_HOST=127.0.0.1           # Server host address
-MCP_PORT=3000                # Server port
-LOG_LEVEL=INFO               # Logging level (DEBUG, INFO, WARNING, ERROR)
-DEBUG=false                  # Enable debug mode
+MCP_HOST=127.0.0.1
+MCP_PORT=3000
 
-# Vector Database
-QDRANT_URL=http://localhost:6333  # Qdrant server URL
-QDRANT_API_KEY=             # Optional API key for Qdrant
-COLLECTION_NAME=mcp_vectors  # Vector collection name
+# Vector Store
+QDRANT_URL=http://localhost:6333
 
-# Storage Directories
-MCP_DOCS_CACHE_DIR=./docs           # Documentation cache directory
-MCP_ADR_DIR=./docs/adrs            # ADR storage directory
-MCP_KB_STORAGE_DIR=./knowledge     # Knowledge base storage
-MCP_DISK_CACHE_DIR=./cache        # Disk cache location
+# Storage Paths
+MCP_DOCS_CACHE_DIR=./docs
+MCP_ADR_DIR=./docs/adrs
+MCP_KB_STORAGE_DIR=./knowledge
+MCP_DISK_CACHE_DIR=./cache
 ```
 
-### Advanced Settings
+### Optional Variables
 ```bash
-# Performance Tuning
-MCP_MAX_WORKERS=4           # Maximum worker processes
-MCP_BATCH_SIZE=100         # Batch processing size
-MCP_TIMEOUT=30             # Request timeout (seconds)
-MCP_MAX_RETRIES=3         # Maximum retry attempts
+# Logging
+MCP_LOG_LEVEL=INFO
+MCP_LOG_FORMAT=json
 
-# Security
-MCP_AUTH_ENABLED=false    # Enable authentication
-MCP_JWT_SECRET=          # JWT secret key
-MCP_ALLOWED_ORIGINS=*    # CORS allowed origins
-
-# Metrics and Monitoring
-MCP_METRICS_ENABLED=true  # Enable metrics collection
-MCP_METRICS_PORT=9090    # Metrics server port
+# Performance
+MCP_CACHE_SIZE=1000
+MCP_WORKER_COUNT=4
 ```
 
 ## Configuration File
 
-Create a `config.yaml` file in your project root:
+Create `config.yaml` in your project root:
 
 ```yaml
 server:
   host: 127.0.0.1
   port: 3000
-  log_level: INFO
-  debug: false
-  
+  workers: 4
+
 vector_store:
   url: http://localhost:6333
-  api_key: ""
-  collection_name: mcp_vectors
-  
+  collection: code_vectors
+
 storage:
-  docs_cache_dir: ./docs
+  docs_cache: ./docs
   adr_dir: ./docs/adrs
-  kb_storage_dir: ./knowledge
-  disk_cache_dir: ./cache
-  
-performance:
-  max_workers: 4
-  batch_size: 100
-  timeout: 30
-  max_retries: 3
-  
-security:
-  auth_enabled: false
-  jwt_secret: ""
-  allowed_origins: ["*"]
-  
-metrics:
-  enabled: true
-  port: 9090
+  kb_storage: ./knowledge
+  disk_cache: ./cache
+
+logging:
+  level: INFO
+  format: json
 ```
 
 ## Command-line Arguments
@@ -272,6 +250,6 @@ Common configuration issues and solutions:
 
 ## Next Steps
 
-- Review the [Security Guide](../security/security-guide.md)
-- Set up [Monitoring](../deployment/monitoring.md)
-- Configure [Backup Strategies](../deployment/backup.md)
+- [Quick Start Guide](quickstart.md)
+- [API Reference](../api/rest-api.md)
+- [Development Guide](../development/README.md)

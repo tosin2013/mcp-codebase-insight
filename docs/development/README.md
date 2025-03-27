@@ -6,60 +6,118 @@
 
 ## Overview
 
-This document provides guidance for developers working on the MCP Codebase Insight project. For workflow information, please see the [Workflows Documentation](../workflows/README.md).
+This guide covers development setup, contribution guidelines, and best practices for the MCP Codebase Insight project.
 
-## Getting Started
+## Development Setup
 
-### Prerequisites
-- Python 3.11 or higher
-- pip
-- Git
-- Docker (optional)
-
-### Development Setup
-1. Clone the repository
+1. **Clone Repository**
    ```bash
-   git clone https://github.com/modelcontextprotocol/mcp-codebase-insight.git
+   git clone https://github.com/modelcontextprotocol/mcp-codebase-insight
    cd mcp-codebase-insight
    ```
 
-2. Create a virtual environment
+2. **Create Virtual Environment**
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
-3. Install dependencies
+3. **Install Development Dependencies**
    ```bash
-   pip install -r requirements.txt
-   pip install -r requirements-dev.txt
+   pip install -e ".[dev]"
    ```
 
-### Running Tests
-```bash
-pytest tests/
-```
+4. **Setup Pre-commit Hooks**
+   ```bash
+   pre-commit install
+   ```
 
 ## Project Structure
 
 ```
 mcp-codebase-insight/
-├── docs/                 # Documentation
-├── src/                 # Source code
+├── src/
 │   └── mcp_codebase_insight/
-│       ├── core/        # Core functionality
-│       ├── utils/       # Utilities
-│       └── server.py    # Main server
-├── tests/              # Test suite
-├── scripts/            # Development scripts
-└── requirements.txt    # Dependencies
+│       ├── analysis/       # Code analysis modules
+│       ├── documentation/  # Documentation management
+│       ├── kb/            # Knowledge base operations
+│       └── server/        # FastAPI server
+├── tests/
+│   ├── integration/       # Integration tests
+│   └── unit/             # Unit tests
+├── docs/                 # Documentation
+└── examples/            # Example usage
 ```
 
-## Development Workflow
+## Testing
 
-1. Create a new branch
+```bash
+# Run unit tests
+pytest tests/unit
+
+# Run integration tests
+pytest tests/integration
+
+# Run with coverage
+pytest --cov=src tests/
+```
+
+## Code Style
+
+- Follow PEP 8
+- Use type hints
+- Document functions and classes
+- Keep functions focused and small
+- Write tests for new features
+
+## Git Workflow
+
+1. Create feature branch
 2. Make changes
 3. Run tests
 4. Submit pull request
 
-See the [Contributing Guide](../../CONTRIBUTING.md) for more details. 
+## Documentation
+
+- Update docs for new features
+- Include docstrings
+- Add examples when relevant
+
+## Debugging
+
+### Server Debugging
+```python
+import debugpy
+
+debugpy.listen(("0.0.0.0", 5678))
+debugpy.wait_for_client()
+```
+
+### VSCode Launch Configuration
+```json
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: Remote Attach",
+      "type": "python",
+      "request": "attach",
+      "port": 5678,
+      "host": "localhost"
+    }
+  ]
+}
+```
+
+## Performance Profiling
+
+```bash
+python -m cProfile -o profile.stats your_script.py
+python -m snakeviz profile.stats
+```
+
+## Next Steps
+
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [API Reference](../api/rest-api.md) 

@@ -1,6 +1,8 @@
 # Installation Guide
 
-This guide will walk you through the process of installing MCP Codebase Insight and its dependencies.
+> 🚧 **Documentation In Progress**
+> 
+> This documentation is being actively developed. More details will be added soon.
 
 ## Prerequisites
 
@@ -47,7 +49,7 @@ mcp-codebase-insight --version
 
 ```bash
 # Pull the Docker image
-docker pull tosin2013/mcp-codebase-insight:latest
+docker pull modelcontextprotocol/mcp-codebase-insight
 
 # Create necessary directories
 mkdir -p docs knowledge cache
@@ -58,7 +60,7 @@ docker run -p 3000:3000 \
     -v $(pwd)/docs:/app/docs \
     -v $(pwd)/knowledge:/app/knowledge \
     -v $(pwd)/cache:/app/cache \
-    tosin2013/mcp-codebase-insight
+    modelcontextprotocol/mcp-codebase-insight
 ```
 
 ### 3. From Source
@@ -154,6 +156,7 @@ chmod -R 755 docs knowledge cache
 - Read the [Configuration Guide](configuration.md) for detailed setup options
 - Follow the [Quick Start Tutorial](quickstart.md) to begin using the system
 - Check the [Best Practices](../development/best-practices.md) for optimal usage
+- Follow the [Qdrant Setup](qdrant_setup.md) to set up the vector database
 
 ## Support
 

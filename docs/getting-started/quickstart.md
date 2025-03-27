@@ -1,14 +1,46 @@
-# Quick Start Tutorial
+# Quick Start Guide
 
-This tutorial will help you get started with MCP Codebase Insight quickly. We'll cover basic setup and essential features.
+> 🚧 **Documentation In Progress**
+> 
+> This documentation is being actively developed. More details will be added soon.
+
+## Overview
+
+This guide will help you get started with MCP Codebase Insight quickly.
 
 ## Prerequisites
 
 Ensure you have:
-- Python 3.11 or higher
-- pip (Python package installer)
-- Git
-- Docker (optional, for containerized setup)
+- Completed the [Installation](installation.md)
+- Set up [Qdrant](qdrant_setup.md)
+- Configured your [environment](configuration.md)
+
+## Basic Usage
+
+1. **Start the Server**
+   ```bash
+   mcp-codebase-insight --host localhost --port 3000
+   ```
+
+2. **Analyze Code**
+   ```python
+   from mcp_codebase_insight import CodebaseAnalyzer
+   
+   analyzer = CodebaseAnalyzer()
+   results = analyzer.analyze_code("path/to/code")
+   ```
+
+3. **View Results**
+   ```python
+   print(results.patterns)
+   print(results.suggestions)
+   ```
+
+## Next Steps
+
+- [API Reference](../api/rest-api.md)
+- [Feature Documentation](../features/code-analysis.md)
+- [Development Guide](../development/README.md)
 
 ## 5-Minute Setup
 
@@ -45,12 +77,7 @@ Ensure you have:
    mkdir -p docs/adrs knowledge
    ```
 
-4. **Start the Server**
-   ```bash
-   mcp-codebase-insight --host 127.0.0.1 --port 3000
-   ```
-
-5. **Verify Installation**
+4. **Verify Installation**
    ```bash
    # In another terminal
    curl http://localhost:3000/health
@@ -149,23 +176,6 @@ for component, status in health["components"].items():
 1. Open your browser to `http://localhost:3000/docs`
 2. Explore the interactive API documentation
 3. Try out different endpoints directly from the browser
-
-## Next Steps
-
-1. **Explore Advanced Features**
-   - [Code Analysis Guide](../features/code-analysis.md)
-   - [ADR Management](../features/adr-management.md)
-   - [Documentation Management](../features/documentation.md)
-
-2. **Configure for Production**
-   - [Security Setup](../security/security-guide.md)
-   - [Production Deployment](../deployment/production.md)
-   - [Monitoring](../deployment/monitoring.md)
-
-3. **Integrate with Tools**
-   - [IDE Integration](../integration/ide-setup.md)
-   - [CI/CD Pipeline](../integration/ci-cd.md)
-   - [Custom Extensions](../integration/extensions.md)
 
 ## Common Operations
 
