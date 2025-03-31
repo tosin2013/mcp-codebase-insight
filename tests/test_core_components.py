@@ -1,20 +1,26 @@
 """Test core server components."""
 
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import pytest
 from datetime import datetime
 from uuid import uuid4
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.adr import ADRManager, ADRStatus
-from mcp_codebase_insight.core.debug import DebugSystem, IssueType, IssueStatus
-from mcp_codebase_insight.core.documentation import DocumentationManager, DocumentationType
-from mcp_codebase_insight.core.knowledge import KnowledgeBase, Pattern, PatternType, PatternConfidence
-from mcp_codebase_insight.core.tasks import TaskManager, TaskType, TaskStatus, TaskPriority
-from mcp_codebase_insight.core.metrics import MetricsManager, MetricType
-from mcp_codebase_insight.core.health import HealthManager, HealthStatus
-from mcp_codebase_insight.core.cache import CacheManager
-from mcp_codebase_insight.core.vector_store import VectorStore
-from mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.core.adr import ADRManager, ADRStatus
+from src.mcp_codebase_insight.core.debug import DebugSystem, IssueType, IssueStatus
+from src.mcp_codebase_insight.core.documentation import DocumentationManager, DocumentationType
+from src.mcp_codebase_insight.core.knowledge import KnowledgeBase, Pattern, PatternType, PatternConfidence
+from src.mcp_codebase_insight.core.tasks import TaskManager, TaskType, TaskStatus, TaskPriority
+from src.mcp_codebase_insight.core.metrics import MetricsManager, MetricType
+from src.mcp_codebase_insight.core.health import HealthManager, HealthStatus
+from src.mcp_codebase_insight.core.cache import CacheManager
+from src.mcp_codebase_insight.core.vector_store import VectorStore
+from src.mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
 
 @pytest.mark.asyncio
 async def test_adr_manager(test_config: ServerConfig, test_adr: dict):

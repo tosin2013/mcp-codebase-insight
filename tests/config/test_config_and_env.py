@@ -1,5 +1,11 @@
 """Tests for configuration and environment handling."""
 
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import os
 import asyncio
 import shutil
@@ -12,8 +18,8 @@ import uuid
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, VectorParams
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.server import CodebaseAnalysisServer
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.server import CodebaseAnalysisServer
 
 @pytest.fixture(scope="session")
 def event_loop() -> Generator[asyncio.AbstractEventLoop, None, None]:

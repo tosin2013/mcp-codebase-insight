@@ -21,6 +21,10 @@ from typing import Dict, Any, List, Callable, Tuple, Optional, Set, Awaitable
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("component-test-runner")
 
+# Import the sys module to modify path
+import sys
+sys.path.insert(0, '/Users/tosinakinosho/workspaces/mcp-codebase-insight')
+
 # Import required components directly to avoid fixture resolution issues
 from src.mcp_codebase_insight.core.config import ServerConfig
 from src.mcp_codebase_insight.core.vector_store import VectorStore
@@ -188,6 +192,26 @@ def get_module_tests(module_path: str) -> List[str]:
     logger.info(f"Found {len(test_functions)} tests in {module_path}")
     return test_functions
 
+def load_test_module(module_path: str):
+    """Load a test module with proper path handling."""
+    # Convert file path to module path
+    if module_path.endswith('.py'):
+        module_path = module_path[:-3]  # Remove .py extension
+    
+    # Convert path separators to module separators
+    module_name = module_path.replace('/', '.').replace('\\', '.')
+    
+    # Ensure we use the correct Python path
+    if not any(p == '.' for p in sys.path):
+        sys.path.append('.')
+    
+    logger.info(f"Attempting to import module: {module_name}")
+    try:
+        return importlib.import_module(module_name)
+    except ImportError as e:
+        logger.error(f"Failed to import test module {module_name}: {e}")
+        return None
+
 
 async def run_component_test(module_path: str, test_name: str) -> bool:
     """
@@ -203,11 +227,8 @@ async def run_component_test(module_path: str, test_name: str) -> bool:
     logger.info(f"Running test: {module_path}::{test_name}")
     
     # Import the test module
-    module_name = module_path.replace('/', '.').replace('.py', '')
-    try:
-        test_module = importlib.import_module(module_name)
-    except ImportError as e:
-        logger.error(f"Failed to import test module {module_name}: {e}")
+    test_module = load_test_module(module_path)
+    if not test_module:
         return False
     
     # Get the test function

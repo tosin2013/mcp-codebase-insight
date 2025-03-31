@@ -18,6 +18,8 @@ from src.mcp_codebase_insight.core.vector_store import VectorStore
 from src.mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
 from src.mcp_codebase_insight.core.knowledge import KnowledgeBase
 from src.mcp_codebase_insight.core.tasks import TaskManager
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 @pytest.fixture
 def test_config():

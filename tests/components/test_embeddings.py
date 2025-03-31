@@ -1,6 +1,13 @@
+
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import pytest
 import asyncio
-from mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
+from src.mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
 
 @pytest.mark.asyncio
 async def test_embedder_initialization():

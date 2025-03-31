@@ -1,8 +1,15 @@
+
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import pytest
 from pathlib import Path
 from typing import AsyncGenerator
-from mcp_codebase_insight.core.tasks import TaskManager, TaskType, TaskStatus
-from mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.core.tasks import TaskManager, TaskType, TaskStatus
+from src.mcp_codebase_insight.core.config import ServerConfig
 
 @pytest.fixture
 async def task_manager(test_config: ServerConfig):

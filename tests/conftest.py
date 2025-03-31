@@ -20,6 +20,8 @@ from fastapi import FastAPI
 from mcp_codebase_insight.core.config import ServerConfig
 from mcp_codebase_insight.server import CodebaseAnalysisServer
 from mcp_codebase_insight.server_test_isolation import get_isolated_server_state
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
 
 logger = logging.getLogger(__name__)
 

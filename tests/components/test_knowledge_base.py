@@ -1,9 +1,16 @@
+
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import pytest
 from pathlib import Path
 from typing import AsyncGenerator
-from mcp_codebase_insight.core.knowledge import KnowledgeBase, PatternType, PatternConfidence
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.vector_store import VectorStore
+from src.mcp_codebase_insight.core.knowledge import KnowledgeBase, PatternType, PatternConfidence
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.core.vector_store import VectorStore
 
 @pytest.fixture
 async def knowledge_base(test_config: ServerConfig, vector_store: VectorStore):

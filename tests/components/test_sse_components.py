@@ -1,12 +1,18 @@
 """Unit tests for SSE core components."""
 
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import asyncio
 import pytest
 import logging
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Dict, Any, List, AsyncGenerator
 
-from mcp_codebase_insight.core.sse import create_sse_server, MCP_CodebaseInsightServer
+from src.mcp_codebase_insight.core.sse import create_sse_server, MCP_CodebaseInsightServer
 from mcp.server.fastmcp import FastMCP
 from mcp.server.sse import SseServerTransport
 

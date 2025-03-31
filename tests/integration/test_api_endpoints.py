@@ -1,5 +1,11 @@
 """Tests for API endpoints."""
 
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import json
 from pathlib import Path
 from typing import Dict, Any, List, AsyncGenerator
@@ -11,9 +17,9 @@ import httpx
 import logging
 from fastapi import HTTPException
 
-from mcp_codebase_insight.server import CodebaseAnalysisServer
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.knowledge import PatternType
+from src.mcp_codebase_insight.server import CodebaseAnalysisServer
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.core.knowledge import PatternType
 
 logger = logging.getLogger(__name__)
 

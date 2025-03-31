@@ -1,11 +1,15 @@
 import pytest
 import uuid
+import sys
+import os
 from pathlib import Path
 from typing import AsyncGenerator, Dict
 from fastapi.testclient import TestClient
-from mcp_codebase_insight.core.vector_store import VectorStore
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+from src.mcp_codebase_insight.core.vector_store import VectorStore
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.core.embeddings import SentenceTransformerEmbedding
 import logging
 
 logger = logging.getLogger(__name__)
@@ -77,8 +81,10 @@ async def test_vector_store_add_and_search(vector_store: VectorStore, test_metad
 @pytest.mark.asyncio
 async def test_vector_store_cleanup(test_config: ServerConfig, embedder: SentenceTransformerEmbedding):
     """Test that cleanup works correctly."""
-    # Create a new vector store specifically for this test
-    collection_name = f"cleanup_test_{uuid.uuid4().hex[:8]}"
+    # Use the configured collection name for this test
+    # This ensures we're using the properly initialized collection
+    collection_name = os.environ.get("MCP_COLLECTION_NAME", test_config.collection_name)
+    
     store = VectorStore(
         test_config.qdrant_url,
         embedder,

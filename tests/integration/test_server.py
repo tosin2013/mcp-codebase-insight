@@ -1,14 +1,20 @@
 """Test server API endpoints."""
 
+import sys
+import os
+
+# Ensure the src directory is in the Python path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
 import uuid
 import logging
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.server import CodebaseAnalysisServer
-from mcp_codebase_insight.server_test_isolation import get_isolated_server_state
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.server import CodebaseAnalysisServer
+from src.mcp_codebase_insight.server_test_isolation import get_isolated_server_state
 
 # Setup logger
 logger = logging.getLogger(__name__)
