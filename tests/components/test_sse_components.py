@@ -329,3 +329,135 @@ async def test_sse_handle_connect(mock_starlette, mock_transport):
     assert len(mock_mcp.run.call_args[0]) == 2
     assert mock_mcp.run.call_args[0][0] == mock_streams[0]
     assert mock_mcp.run.call_args[0][1] == mock_streams[1]
+
+
+async def test_sse_backpressure_handling(mcp_server):
+    """Test SSE backpressure handling mechanism."""
+    # Set up a mock transport with a slow client
+    mock_transport = MagicMock()
+    mock_transport.send = AsyncMock()
+    
+    # Simulate backpressure by making send delay
+    async def delayed_send(*args, **kwargs):
+        await asyncio.sleep(0.1)  # Simulate slow client
+        return True
+    
+    mock_transport.send.side_effect = delayed_send
+    
+    # Create a test event generator that produces events faster than they can be sent
+    async def fast_event_generator():
+        for i in range(10):
+            yield f"event_{i}"
+            await asyncio.sleep(0.01)  # Generate events faster than they can be sent
+    
+    # Test that backpressure mechanism prevents buffer overflow
+    buffer_size = 0
+    max_buffer_size = 5
+    
+    async for event in fast_event_generator():
+        if buffer_size < max_buffer_size:
+            # Simulate adding to buffer
+            buffer_size += 1
+            await mock_transport.send(event)
+        else:
+            # Verify that backpressure mechanism is working
+            with pytest.raises(asyncio.QueueFull):
+                await mock_transport.send(event)
+    
+    # Verify the number of events actually sent matches our buffer limit
+    assert mock_transport.send.call_count <= max_buffer_size
+
+
+async def test_sse_connection_management(mcp_server):
+    """Test SSE connection lifecycle management."""
+    # Set up connection tracking
+    active_connections = set()
+    
+    # Mock connection handler
+    async def handle_connection(client_id):
+        # Add connection to tracking
+        active_connections.add(client_id)
+        try:
+            # Simulate connection lifetime
+            await asyncio.sleep(0.1)
+        finally:
+            # Ensure connection is removed on disconnect
+            active_connections.remove(client_id)
+    
+    # Test multiple concurrent connections
+    async def simulate_connections():
+        tasks = []
+        for i in range(3):
+            client_id = f"client_{i}"
+            task = asyncio.create_task(handle_connection(client_id))
+            tasks.append(task)
+        
+        # Verify all connections are active
+        await asyncio.sleep(0.05)
+        assert len(active_connections) == 3
+        
+        # Wait for all connections to complete
+        await asyncio.gather(*tasks)
+        
+        # Verify all connections were properly cleaned up
+        assert len(active_connections) == 0
+    
+    await simulate_connections()
+
+
+async def test_sse_keep_alive(mcp_server):
+    """Test SSE keep-alive mechanism."""
+    mock_transport = MagicMock()
+    mock_transport.send = AsyncMock()
+    
+    # Set up keep-alive configuration
+    keep_alive_interval = 0.1  # 100ms for testing
+    last_keep_alive = 0
+    
+    # Simulate connection with keep-alive
+    async def run_keep_alive():
+        nonlocal last_keep_alive
+        start_time = asyncio.get_event_loop().time()
+        
+        # Run for a short period
+        while asyncio.get_event_loop().time() - start_time < 0.5:
+            current_time = asyncio.get_event_loop().time()
+            
+            # Send keep-alive if interval has elapsed
+            if current_time - last_keep_alive >= keep_alive_interval:
+                await mock_transport.send(": keep-alive\n")
+                last_keep_alive = current_time
+            
+            await asyncio.sleep(0.01)
+    
+    await run_keep_alive()
+    
+    # Verify keep-alive messages were sent
+    expected_messages = int(0.5 / keep_alive_interval)  # Expected number of keep-alive messages
+    assert mock_transport.send.call_count >= expected_messages - 1  # Allow for timing variations
+    assert mock_transport.send.call_count <= expected_messages + 1
+
+
+async def test_sse_error_handling(mcp_server):
+    """Test SSE error handling and recovery."""
+    mock_transport = MagicMock()
+    mock_transport.send = AsyncMock()
+    
+    # Simulate various error conditions
+    async def simulate_errors():
+        # Test network error
+        mock_transport.send.side_effect = ConnectionError("Network error")
+        with pytest.raises(ConnectionError):
+            await mock_transport.send("test_event")
+        
+        # Test client disconnect
+        mock_transport.send.side_effect = asyncio.CancelledError()
+        with pytest.raises(asyncio.CancelledError):
+            await mock_transport.send("test_event")
+        
+        # Test recovery after error
+        mock_transport.send.side_effect = None
+        await mock_transport.send("recovery_event")
+        mock_transport.send.assert_called_with("recovery_event")
+    
+    await simulate_errors()

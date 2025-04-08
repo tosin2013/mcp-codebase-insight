@@ -591,9 +591,13 @@ async def test_health_check(client: httpx.AsyncClient):
     # In test environment, we expect partially initialized state
     assert "status" in data
     assert "initialized" in data
+    assert "mcp_available" in data
+    assert "instance_id" in data
     
     # Accept 'ok' status in test environment
-    assert data["status"] in ["healthy", "initializing", "ok"], f"Unexpected status: {data['status']}"
+    assert data["status"] == "ok"
+    assert data["initialized"] is False
+    assert data["mcp_available"] is False
     
     # Print status for debugging
     print(f"Health status: {data}")
