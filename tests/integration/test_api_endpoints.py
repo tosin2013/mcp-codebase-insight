@@ -119,7 +119,7 @@ async def test_analyze_code_endpoint(client: httpx.AsyncClient):
     
     # Important: Since the server components aren't fully initialized in the test environment,
     # we verify that we can connect to the server and get the expected partially initialized status
-    assert health_data["status"] in ["initializing", "ok"]
+    assert health_data["status"] == "ok"
     assert health_data["initialized"] is False
     
     # This test is successful if we can connect to the server and get the health status
@@ -591,8 +591,6 @@ async def test_health_check(client: httpx.AsyncClient):
     # In test environment, we expect partially initialized state
     assert "status" in data
     assert "initialized" in data
-    
-    # We don't assert on components field since it might be missing
     
     # Accept 'ok' status in test environment
     assert data["status"] in ["healthy", "initializing", "ok"], f"Unexpected status: {data['status']}"
