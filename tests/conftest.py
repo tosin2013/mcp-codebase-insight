@@ -17,11 +17,12 @@ import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 
-from mcp_codebase_insight.core.config import ServerConfig
-from mcp_codebase_insight.server import CodebaseAnalysisServer
-from mcp_codebase_insight.server_test_isolation import get_isolated_server_state
 # Ensure the src directory is in the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
+from src.mcp_codebase_insight.core.config import ServerConfig
+from src.mcp_codebase_insight.server import CodebaseAnalysisServer
+from src.mcp_codebase_insight.server_test_isolation import get_isolated_server_state
 
 logger = logging.getLogger(__name__)
 
@@ -190,8 +191,8 @@ async def session_test_server(event_loop, test_server_config):
     logger.info("Server initialized successfully")
     
     # Create and mount MCP server
-    from mcp_codebase_insight.core.sse import MCP_CodebaseInsightServer, create_sse_server
-    from mcp_codebase_insight.core.state import ComponentStatus
+    from src.mcp_codebase_insight.core.sse import MCP_CodebaseInsightServer, create_sse_server
+    from src.mcp_codebase_insight.core.state import ComponentStatus
     
     logger.info("Creating and mounting MCP server...")
     try:
@@ -507,7 +508,7 @@ def pytest_runtest_teardown(item):
 @pytest.fixture(autouse=True, scope="session")
 def cleanup_server_states(event_loop: asyncio.AbstractEventLoop):
     """Clean up any lingering server states."""
-    from mcp_codebase_insight.server_test_isolation import _server_states
+    from src.mcp_codebase_insight.server_test_isolation import _server_states
     
     yield
     
