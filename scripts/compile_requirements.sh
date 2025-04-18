@@ -9,8 +9,8 @@ DEFAULT_VERSION="3.11"
 PYTHON_VERSION=${1:-$DEFAULT_VERSION}
 
 # Validate Python version
-if [[ ! "$PYTHON_VERSION" =~ ^3\.(9|10|11)$ ]]; then
-    echo "Error: Python version must be 3.9, 3.10, or 3.11"
+if [[ ! "$PYTHON_VERSION" =~ ^3\.(10|11|12|13)$ ]]; then
+    echo "Error: Python version must be 3.10, 3.11, 3.12 or 3.13."
     echo "Usage: $0 [python-version]"
     echo "Example: $0 3.10"
     exit 1
