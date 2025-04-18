@@ -175,7 +175,7 @@ jobs:
         echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
         echo "BUILD_COMMAND=make build" >> $GITHUB_ENV
         echo "TEST_COMMAND=make test" >> $GITHUB_ENV
-        echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '30.0' }}" >> $GITHUB_ENV
+        echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '40.0' }}" >> $GITHUB_ENV
         echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}" >> $GITHUB_ENV
         echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server" >> $GITHUB_ENV
         echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
@@ -226,7 +226,7 @@ jobs:
         cat > ${{ github.event.inputs.config_file }} << EOF
         {
           "success_criteria": {
-            "min_test_coverage": ${{ github.event.inputs.min_coverage || '30.0' }},
+            "min_test_coverage": ${{ github.event.inputs.min_coverage || '40.0' }},
             "max_allowed_failures": ${{ github.event.inputs.max_failures || '0' }},
             "critical_modules": ["mcp_codebase_insight.core.vector_store", "mcp_codebase_insight.core.knowledge", "mcp_codebase_insight.server"],
             "performance_threshold_ms": 500
@@ -241,7 +241,13 @@ jobs:
         chmod +x run_tests.py
 
         # Run specific tests that are known to pass
-        # Note: We're only running a subset of tests that have been fixed and are known to pass
+        # Note: We're running a subset of tests that have been fixed and are known to pass, including:
+        # - Core component tests (ADR manager)
+        # - SSE component tests
+        # - STDIO component tests
+        # - API endpoint tests
+        # - Communication integration tests
+        # - File relationship tests
         # This is a temporary measure until all tests are fixed
         echo "Running specific tests that are known to pass..."
         python -m pytest \
@@ -253,6 +259,14 @@ jobs:
           tests/components/test_sse_components.py::test_adr_list_tool \
           tests/components/test_sse_components.py::test_task_status_tool \
           tests/components/test_sse_components.py::test_sse_handle_connect \
+          tests/components/test_stdio_components.py::test_stdio_registration \
+          tests/components/test_stdio_components.py::test_stdio_message_streaming \
+          tests/components/test_stdio_components.py::test_stdio_error_handling \
+          tests/components/test_stdio_components.py::test_stdio_large_message \
+          tests/integration/test_api_endpoints.py::test_health_check \
+          tests/integration/test_api_endpoints.py::test_endpoint_integration \
+          tests/integration/test_api_endpoints.py::test_error_handling \
+          tests/integration/test_communication_integration.py::test_sse_stdio_interaction \
           tests/test_file_relationships.py \
           -v --cov=src/mcp_codebase_insight --cov-report=xml:coverage.xml --cov-report=html:htmlcov
 
