@@ -10,6 +10,7 @@ import os
 import asyncio
 import shutil
 import pytest
+import pytest_asyncio
 from pathlib import Path
 from typing import Generator
 from unittest.mock import patch
@@ -67,7 +68,7 @@ def test_collection_name() -> str:
     """Generate a unique test collection name."""
     return f"test_collection_{uuid.uuid4().hex[:8]}"
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def qdrant_client() -> QdrantClient:
     """Create a Qdrant client for tests."""
     client = QdrantClient(url="http://localhost:6333")

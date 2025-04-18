@@ -1,0 +1,168 @@
+name: MCP Codebase Insight
+version: 0.1.0
+description: A system for analyzing and understanding codebases through semantic analysis, pattern detection, and documentation management.
+
+poc_scope:
+  - Vector-based code analysis and similarity search
+  - Pattern detection and knowledge base operations
+  - Dual-transport architecture (SSE and stdio)
+  - Task management and tracking
+  - Memory operations and persistence
+
+environment:
+  requirements:
+    python: ">=3.11"
+    docker: ">=20.10.0"
+    ram_gb: 4
+    cpu_cores: 2
+    disk_space_gb: 20
+  
+  dependencies:
+    core:
+      - mcp-firecrawl
+      - httpx-sse
+      - python-frontmatter
+      - qdrant-client>=1.13.3
+      - fastapi>=0.115.12
+      - numpy>=2.2.4
+    
+    transport:
+      - mcp-transport
+      - mcp-stdio
+      - mcp-sse
+    
+    development:
+      - pytest
+      - black
+      - isort
+      - mypy
+      - pip-tools
+      - bump2version
+
+configuration:
+  env_vars:
+    required:
+      - QDRANT_HOST
+      - QDRANT_PORT
+      - API_KEY
+      - TRANSPORT_MODE
+    optional:
+      - DEBUG_MODE
+      - LOG_LEVEL
+  
+  files:
+    required:
+      - .env
+      - docker-compose.yml
+    optional:
+      - .env.local
+
+setup:
+  steps:
+    1_environment:
+      - Create and activate Python virtual environment
+      - Install dependencies from requirements.txt
+      - Copy .env.example to .env and configure
+    
+    2_services:
+      - Start Docker
+      - Run docker-compose up for Qdrant
+      - Wait for services to be ready
+    
+    3_validation:
+      - Run main PoC validation script
+      - Check individual component validations if needed
+      - Verify transport configurations
+
+validation:
+  scripts:
+    main:
+      path: scripts/validate_poc.py
+      description: "Main validation script that orchestrates all component checks"
+    
+    components:
+      vector_store:
+        path: scripts/validate_vector_store.py
+        description: "Validates vector store operations and search functionality"
+      
+      knowledge_base:
+        path: scripts/validate_knowledge_base.py
+        description: "Tests knowledge base operations and entity relations"
+      
+      transport:
+        description: "Transport validation is included in the main PoC script"
+
+health_checks:
+  services:
+    qdrant:
+      endpoint: http://localhost:6333/health
+      method: GET
+    
+    api:
+      endpoint: http://localhost:8000/health
+      method: GET
+      headers:
+        Authorization: "Bearer ${API_KEY}"
+
+functional_checks:
+  vector_store:
+    - Test vector operations with sample code
+    - Validate embedding dimensions
+    - Verify search functionality
+  
+  knowledge_base:
+    - Create and verify test entities
+    - Test entity relations
+    - Validate query operations
+  
+  transport:
+    sse:
+      - Verify event stream connection
+      - Test bidirectional communication
+      - Check error handling
+    
+    stdio:
+      - Verify process communication
+      - Test command execution
+      - Validate response format
+
+troubleshooting:
+  environment:
+    - Check Python and Docker versions
+    - Verify system resources
+    - Validate dependency installation
+  
+  services:
+    - Check Docker container status
+    - View service logs
+    - Verify port availability
+  
+  transport:
+    - Test SSE endpoint connectivity
+    - Verify stdio binary functionality
+    - Check authentication configuration
+  
+  data:
+    - Verify Qdrant collection status
+    - Check knowledge base connectivity
+    - Test data persistence
+
+metrics:
+  collection:
+    - System resource usage
+    - Request latency
+    - Transport performance
+    - Operation success rates
+  
+  monitoring:
+    - Component health status
+    - Error rates and types
+    - Resource utilization
+    - Transport switching events
+
+documentation:
+  references:
+    - docs/system_architecture/README.md
+    - docs/api/README.md
+    - docs/adrs/006_transport_protocols.md
+    - docs/development/README.md 

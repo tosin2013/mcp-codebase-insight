@@ -68,59 +68,51 @@ class VectorStore:
             self.client = QdrantClient(
                 url=self.url,
                 api_key=self.api_key,
-                timeout=10.0,  # Increased timeout for reliability
-                prefer_grpc=False  # Use HTTP instead of gRPC for better compatibility
+                timeout=10.0,
+                prefer_grpc=False
             )
             
-            # Test connection with retry
-            max_retries = 3
-            retry_delay = 1
-            for attempt in range(max_retries):
-                try:
-                    logger.debug(f"Testing Qdrant connection (attempt {attempt+1}/{max_retries})")
-                    self.client.get_collections()
-                    logger.debug("Connection successful")
-                    break
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        logger.warning(f"Connection attempt {attempt+1} failed: {e}, retrying in {retry_delay}s")
-                        await asyncio.sleep(retry_delay)
-                        retry_delay *= 2
-                    else:
-                        raise RuntimeError(f"Failed to connect to Qdrant at {self.url}: {str(e)}")
-            
-            # Create collection if it doesn't exist
+            # Attempt to test connection and set up collection; skip on failure
             try:
+                # Test connection with retry
+                max_retries = 3
+                retry_delay = 1
+                for attempt in range(max_retries):
+                    try:
+                        logger.debug(f"Testing Qdrant connection (attempt {attempt+1}/{max_retries})")
+                        self.client.get_collections()
+                        logger.debug("Connection successful")
+                        break
+                    except Exception as e:
+                        if attempt < max_retries - 1:
+                            logger.warning(f"Connection attempt {attempt+1} failed: {e}, retrying in {retry_delay}s")
+                            await asyncio.sleep(retry_delay)
+                            retry_delay *= 2
+                        else:
+                            raise
+                
+                # Create collection if it doesn't exist
                 logger.debug(f"Checking for collection {self.collection_name}")
                 collections = self.client.get_collections().collections
-                exists = any(c.name == self.collection_name for c in collections)
-                
-                if not exists:
+                if not any(c.name == self.collection_name for c in collections):
                     logger.debug(f"Creating collection {self.collection_name}")
                     self.client.create_collection(
                         collection_name=self.collection_name,
                         vectors_config=VectorParams(
                             size=self.vector_size,
                             distance=Distance.COSINE,
-                            on_disk=True  # Store vectors on disk for better memory usage
+                            on_disk=True
                         ),
                         optimizers_config=rest.OptimizersConfigDiff(
-                            indexing_threshold=0,  # Index immediately for code search
-                            memmap_threshold=0  # Use memory mapping for better performance
+                            indexing_threshold=0,
+                            memmap_threshold=0
                         )
                     )
-                else:
-                    logger.debug(f"Collection {self.collection_name} already exists")
-                    
-                # Verify collection is ready
-                collection_info = self.client.get_collection(self.collection_name)
-                logger.debug(f"Collection info: {collection_info}")
-                
-            except UnexpectedResponse as e:
-                raise RuntimeError(f"Failed to setup collection {self.collection_name}: {str(e)}")
+                logger.debug("Vector store collection setup complete")
             except Exception as e:
-                raise RuntimeError(f"Unexpected error setting up collection {self.collection_name}: {str(e)}")
+                logger.warning(f"Qdrant is unavailable, skipping collection setup: {e}")
             
+            # Finalize initialization regardless of Qdrant availability
             self.initialized = True
             logger.debug("Vector store initialization complete")
             
