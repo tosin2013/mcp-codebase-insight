@@ -8,12 +8,12 @@ class MockSSEClient:
     def __init__(self):
         self.events = []
         self.connected = True
-    
+
     async def send(self, event):
         if not self.connected:
             raise ConnectionError("Client disconnected")
         self.events.append(event)
-    
+
     def disconnect(self):
         self.connected = False
 
@@ -23,38 +23,38 @@ async def mock_communication_setup():
     # Set up stdio mocks
     stdio_reader = MockStdinReader("")
     stdio_writer = MockStdoutWriter()
-    
+
     # Set up SSE mock
     sse_client = MockSSEClient()
-    
+
     return stdio_reader, stdio_writer, sse_client
 
-async def test_tool_registration_with_sse_notification(mock_communication_setup):
-    """Test tool registration process with SSE notification."""
+async def test_sse_stdio_interaction(mock_communication_setup):
+    """Test interaction between SSE and STDIO communication channels."""
     stdio_reader, stdio_writer, sse_client = mock_communication_setup
-    
-    # Simulate tool registration via stdio
+
+    # Step 1: Tool registration via STDIO
     registration_message = {
         "type": "register",
         "tool_id": "test_tool",
         "capabilities": ["capability1", "capability2"]
     }
-    
+
     # Override reader's input with registration message
     stdio_reader.input_stream.write(json.dumps(registration_message) + "\n")
     stdio_reader.input_stream.seek(0)
-    
+
     # Process registration
     line = await stdio_reader.readline()
     message = json.loads(line)
-    
+
     # Send registration acknowledgment via stdio
     response = {
         "type": "registration_success",
         "tool_id": message["tool_id"]
     }
     await stdio_writer.write(json.dumps(response) + "\n")
-    
+
     # Send SSE notification about new tool
     sse_notification = {
         "type": "tool_registered",
@@ -62,39 +62,110 @@ async def test_tool_registration_with_sse_notification(mock_communication_setup)
         "capabilities": message["capabilities"]
     }
     await sse_client.send(json.dumps(sse_notification))
-    
+
     # Verify stdio response
     assert "registration_success" in stdio_writer.get_output()
-    
+
     # Verify SSE notification
     assert len(sse_client.events) == 1
     assert "tool_registered" in sse_client.events[0]
     assert message["tool_id"] in sse_client.events[0]
 
+    # Step 2: SSE event triggering STDIO message
+    # Reset the writer to clear previous output
+    stdio_writer = MockStdoutWriter()
+
+    # Simulate an SSE event that should trigger a STDIO message
+    sse_event = {
+        "type": "request",
+        "id": "sse_to_stdio_test",
+        "method": "test_method",
+        "params": {"param1": "value1"}
+    }
+
+    # In a real system, this would be processed by an event handler
+    # that would then write to STDIO. Here we simulate that directly.
+    await sse_client.send(json.dumps(sse_event))
+
+    # Simulate the STDIO response that would be generated
+    stdio_response = {
+        "type": "response",
+        "id": sse_event["id"],
+        "result": {"status": "success"}
+    }
+    await stdio_writer.write(json.dumps(stdio_response) + "\n")
+
+    # Verify the STDIO response
+    assert "response" in stdio_writer.get_output()
+    assert sse_event["id"] in stdio_writer.get_output()
+
+    # Step 3: Bidirectional communication with state tracking
+    # Create a simple state tracker
+    state = {"last_message_id": None, "message_count": 0}
+
+    # Send a sequence of messages in both directions
+    for i in range(3):
+        # STDIO to SSE
+        stdio_message = {
+            "type": "notification",
+            "id": f"msg_{i}",
+            "data": f"data_{i}"
+        }
+
+        # In a real system, this would come from STDIO input
+        # Here we simulate by updating state directly
+        state["last_message_id"] = stdio_message["id"]
+        state["message_count"] += 1
+
+        # Send to SSE
+        await sse_client.send(json.dumps(stdio_message))
+
+        # SSE to STDIO
+        sse_response = {
+            "type": "event",
+            "id": f"response_{i}",
+            "in_response_to": stdio_message["id"],
+            "data": f"response_data_{i}"
+        }
+
+        # Process SSE response and update STDIO
+        await stdio_writer.write(json.dumps(sse_response) + "\n")
+
+    # Verify the communication flow
+    assert state["message_count"] == 3
+    assert state["last_message_id"] == "msg_2"
+    assert len(sse_client.events) == 4  # 1 from registration + 3 from the loop
+
+    # Verify STDIO output contains all responses
+    stdio_output = stdio_writer.get_output()
+    for i in range(3):
+        assert f"response_{i}" in stdio_output
+        assert f"response_data_{i}" in stdio_output
+
 async def test_bidirectional_communication(mock_communication_setup):
     """Test bidirectional communication between stdio and SSE."""
     stdio_reader, stdio_writer, sse_client = mock_communication_setup
-    
+
     # Set up test message flow
     stdio_messages = [
         {"type": "request", "id": "1", "method": "test", "data": "stdio_data"},
         {"type": "request", "id": "2", "method": "test", "data": "more_data"}
     ]
-    
+
     # Write messages to stdio
     for msg in stdio_messages:
         stdio_reader.input_stream.write(json.dumps(msg) + "\n")
     stdio_reader.input_stream.seek(0)
-    
+
     # Process messages and generate SSE events
     while True:
         line = await stdio_reader.readline()
         if not line:
             break
-        
+
         # Process stdio message
         message = json.loads(line)
-        
+
         # Generate SSE event
         sse_event = {
             "type": "event",
@@ -102,7 +173,7 @@ async def test_bidirectional_communication(mock_communication_setup):
             "data": message["data"]
         }
         await sse_client.send(json.dumps(sse_event))
-        
+
         # Send response via stdio
         response = {
             "type": "response",
@@ -110,11 +181,11 @@ async def test_bidirectional_communication(mock_communication_setup):
             "status": "success"
         }
         await stdio_writer.write(json.dumps(response) + "\n")
-    
+
     # Verify all messages were processed
     assert len(sse_client.events) == len(stdio_messages)
     assert all("stdio" in event for event in sse_client.events)
-    
+
     # Verify stdio responses
     output = stdio_writer.get_output()
     responses = [json.loads(line) for line in output.strip().split("\n")]
@@ -124,7 +195,7 @@ async def test_bidirectional_communication(mock_communication_setup):
 async def test_error_propagation(mock_communication_setup):
     """Test error propagation between stdio and SSE."""
     stdio_reader, stdio_writer, sse_client = mock_communication_setup
-    
+
     # Simulate error in stdio
     error_message = {
         "type": "request",
@@ -134,11 +205,11 @@ async def test_error_propagation(mock_communication_setup):
     }
     stdio_reader.input_stream.write(json.dumps(error_message) + "\n")
     stdio_reader.input_stream.seek(0)
-    
+
     # Process message and simulate error
     line = await stdio_reader.readline()
     message = json.loads(line)
-    
+
     # Generate error response in stdio
     error_response = {
         "type": "error",
@@ -146,7 +217,7 @@ async def test_error_propagation(mock_communication_setup):
         "error": "Test error occurred"
     }
     await stdio_writer.write(json.dumps(error_response) + "\n")
-    
+
     # Propagate error to SSE
     sse_error_event = {
         "type": "error_event",
@@ -155,7 +226,7 @@ async def test_error_propagation(mock_communication_setup):
         "request_id": message["id"]
     }
     await sse_client.send(json.dumps(sse_error_event))
-    
+
     # Verify error handling
     assert "error" in stdio_writer.get_output()
     assert len(sse_client.events) == 1
@@ -164,7 +235,7 @@ async def test_error_propagation(mock_communication_setup):
 async def test_connection_state_handling(mock_communication_setup):
     """Test handling of connection state changes."""
     stdio_reader, stdio_writer, sse_client = mock_communication_setup
-    
+
     # Test normal operation
     test_message = {
         "type": "request",
@@ -173,26 +244,26 @@ async def test_connection_state_handling(mock_communication_setup):
     }
     stdio_reader.input_stream.write(json.dumps(test_message) + "\n")
     stdio_reader.input_stream.seek(0)
-    
+
     # Process message while connected
     line = await stdio_reader.readline()
     message = json.loads(line)
     await sse_client.send(json.dumps({"type": "event", "data": "test"}))
-    
+
     # Simulate SSE client disconnect
     sse_client.disconnect()
-    
+
     # Attempt to send message after disconnect
     with pytest.raises(ConnectionError):
         await sse_client.send(json.dumps({"type": "event", "data": "test"}))
-    
+
     # Send disconnect notification via stdio
     disconnect_notification = {
         "type": "notification",
         "event": "client_disconnected"
     }
     await stdio_writer.write(json.dumps(disconnect_notification) + "\n")
-    
+
     # Verify disconnect handling
     assert "client_disconnected" in stdio_writer.get_output()
     assert not sse_client.connected
