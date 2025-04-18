@@ -43,8 +43,11 @@ jobs:
         ports:
           - 6333:6333
           - 6334:6334
-        # Remove health check for now to let the container start properly
-        # We'll check connectivity in a separate step
+        healthcheck:
+          test: ["CMD-SHELL", "curl -f http://localhost:6333/collections"]
+          interval: 10s
+          timeout: 5s
+          retries: 20
 
     steps:
       - name: Checkout code
@@ -64,11 +67,11 @@ jobs:
           apt-get update && apt-get install -y curl jq || true
 
           retry_count=0
-          max_retries=10
+          max_retries=20
           until [ $(curl -s -o /dev/null -w "%{http_code}" http://localhost:6333/collections) -eq 200 ] || [ $retry_count -eq $max_retries ]
           do
             echo "Waiting for Qdrant... (attempt $retry_count of $max_retries)"
-            sleep 3
+            sleep 5
             retry_count=$((retry_count+1))
           done
 
@@ -150,6 +153,7 @@ jobs:
           if [ -f requirements-${{ matrix.python-version }}.txt ]; then
             echo "Installing from version-specific requirements file..."
             pip install -r requirements-${{ matrix.python-version }}.txt
+            pip install -r requirements-dev.txt
 
             # Install private packages if they're in a separate file
             if [ -f requirements-private-${{ matrix.python-version }}.txt ]; then
@@ -175,7 +179,9 @@ jobs:
 
           # Set environment variables
           echo "QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
+          echo "MCP_QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
           echo "COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}" >> $GITHUB_ENV
+          echo "MCP_COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}" >> $GITHUB_ENV
           echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
           echo "BUILD_COMMAND=make build" >> $GITHUB_ENV
           echo "TEST_COMMAND=make test" >> $GITHUB_ENV
