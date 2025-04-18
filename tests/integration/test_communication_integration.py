@@ -195,4 +195,88 @@ async def test_connection_state_handling(mock_communication_setup):
     
     # Verify disconnect handling
     assert "client_disconnected" in stdio_writer.get_output()
-    assert not sse_client.connected 
+    assert not sse_client.connected
+
+async def test_race_condition_handling(mock_communication_setup):
+    """Test handling of potential race conditions in message processing."""
+    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    messages = [
+        {"type": "request", "id": f"race_test_{i}", "sequence": i, "data": f"data_{i}"}
+        for i in range(5)
+    ]
+    import random
+    shuffled_messages = messages.copy()
+    random.shuffle(shuffled_messages)
+    for msg in shuffled_messages:
+        stdio_reader.input_stream.write(json.dumps(msg) + "\n")
+    stdio_reader.input_stream.seek(0)
+    received_messages = {}
+    while True:
+        line = await stdio_reader.readline()
+        if not line:
+            break
+        message = json.loads(line)
+        received_messages[message["sequence"]] = message
+        await sse_client.send(json.dumps({
+            "type": "event",
+            "sequence": message["sequence"],
+            "data": message["data"]
+        }))
+        await stdio_writer.write(json.dumps({
+            "type": "response",
+            "id": message["id"],
+            "sequence": message["sequence"]
+        }) + "\n")
+    ordered_sequences = sorted(received_messages.keys())
+    assert ordered_sequences == list(range(5))
+    for i, event_json in enumerate(sse_client.events):
+        event = json.loads(event_json)
+        assert event["sequence"] < len(messages)
+
+async def test_resource_cleanup(mock_communication_setup):
+    """Test proper cleanup of resources after communication ends."""
+    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    allocated_resources = set()
+    async def allocate_resource(resource_id):
+        allocated_resources.add(resource_id)
+    async def release_resource(resource_id):
+        allocated_resources.remove(resource_id)
+    message = {"type": "request", "id": "resource_test", "resource": "test_resource"}
+    stdio_reader.input_stream.write(json.dumps(message) + "\n")
+    stdio_reader.input_stream.seek(0)
+    line = await stdio_reader.readline()
+    message = json.loads(line)
+    resource_id = message["resource"]
+    await allocate_resource(resource_id)
+    try:
+        await asyncio.sleep(0.1)
+        await stdio_writer.write(json.dumps({
+            "type": "response",
+            "id": message["id"],
+            "status": "success"
+        }) + "\n")
+    finally:
+        await release_resource(resource_id)
+    assert len(allocated_resources) == 0
+
+async def test_partial_message_handling(mock_communication_setup):
+    """Test handling of partial or truncated messages."""
+    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    partial_json = '{"type": "request", "id": "partial_test", "method": "test"'
+    stdio_reader.input_stream.write(partial_json + "\n")
+    stdio_reader.input_stream.seek(0)
+    line = await stdio_reader.readline()
+    try:
+        json.loads(line)
+        parsed = True
+    except json.JSONDecodeError:
+        parsed = False
+        error_response = {
+            "type": "error",
+            "error": "Invalid JSON format",
+            "code": "PARSE_ERROR"
+        }
+        await stdio_writer.write(json.dumps(error_response) + "\n")
+    assert not parsed, "Parsing should have failed with partial JSON"
+    assert "Invalid JSON format" in stdio_writer.get_output()
+    assert "PARSE_ERROR" in stdio_writer.get_output()
