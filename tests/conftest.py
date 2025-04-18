@@ -444,6 +444,14 @@ def test_adr():
         "context": "This is a test ADR for testing",
         "decision": "We decided to test the ADR system",
         "consequences": "Testing will be successful",
+        "options": [
+            {
+                "title": "Test Option",
+                "description": "A test option for the ADR.",
+                "pros": ["Easy to implement"],
+                "cons": ["Not production ready"]
+            }
+        ]
     }
 
 # Define custom pytest hooks

@@ -1,4 +1,3 @@
-
 import sys
 import os
 
@@ -6,13 +5,14 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
 
 import pytest
+import pytest_asyncio
 from pathlib import Path
 from typing import AsyncGenerator
 from src.mcp_codebase_insight.core.knowledge import KnowledgeBase, PatternType, PatternConfidence
 from src.mcp_codebase_insight.core.config import ServerConfig
 from src.mcp_codebase_insight.core.vector_store import VectorStore
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def knowledge_base(test_config: ServerConfig, vector_store: VectorStore):
     kb = KnowledgeBase(test_config, vector_store)
     await kb.initialize()
@@ -131,4 +131,4 @@ async def test_update_pattern(knowledge_base: KnowledgeBase):
     retrieved = await knowledge_base.get_pattern(pattern.id)
     # Name is not updated by the update_pattern method
     assert retrieved.name == pattern_data["name"]  # Original name should remain
-    assert retrieved.description == updated_data["description"] 
+    assert retrieved.description == updated_data["description"]
