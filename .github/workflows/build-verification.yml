@@ -332,10 +332,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: Build Verification
           conclusion: ${{ steps.parse-report.outputs.status == 'PASS' && 'success' || 'failure' }}
-          output_title: Build Verification Results
-          output_summary: ${{ steps.parse-report.outputs.summary }}
-          output_text: |
-            ${{ steps.parse-report.outputs.report }}
+          output: |
+            {
+              "title": "Build Verification Results",
+              "summary": "${{ steps.parse-report.outputs.summary }}",
+              "text": "${{ steps.parse-report.outputs.report }}"
+            }
 
       - name: Check verification status
         if: steps.verify-build.outputs.failed == 'true' || steps.parse-report.outputs.status != 'PASS'
