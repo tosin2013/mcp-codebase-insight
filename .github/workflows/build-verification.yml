@@ -43,11 +43,6 @@ jobs:
         ports:
           - 6333:6333
           - 6334:6334
-        healthcheck:
-          test: ["CMD-SHELL", "curl -f http://localhost:6333/collections"]
-          interval: 10s
-          timeout: 5s
-          retries: 20
 
     steps:
       - name: Checkout code
