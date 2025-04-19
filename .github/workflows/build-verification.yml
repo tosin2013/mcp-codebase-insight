@@ -251,9 +251,10 @@ jobs:
           # Use config file if it exists and is not empty
           if [ -n "${{ github.event.inputs.config_file }}" ] && [ -f "${{ github.event.inputs.config_file }}" ] && [ -s "${{ github.event.inputs.config_file }}" ]; then
             CONFIG_ARG="--config ${{ github.event.inputs.config_file }}"
+            python -m scripts.verify_build $CONFIG_ARG --output build-verification-report.json
+          else
+            python -m scripts.verify_build --output build-verification-report.json
           fi
-
-          python -m scripts.verify_build "$CONFIG_ARG" --output build-verification-report.json
           VERIFY_EXIT_CODE=$?
 
           # Use new output syntax
