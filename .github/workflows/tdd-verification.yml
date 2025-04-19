@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ '3.11' ]
+        python-version: ["${{ github.event.inputs.python_version || '3.11' }}"]
       fail-fast: false
 
     name: TDD Verification with Python ${{ matrix.python-version }}
@@ -75,7 +75,7 @@ jobs:
         run: |
           echo "Creating Qdrant collection for testing..."
           # Create a basic Python script to initialize the collection
-          cat > init_qdrant.py << EOF
+          cat > init_qdrant.py << 'EOF'
           import os
           from qdrant_client import QdrantClient
           from qdrant_client.http import models
@@ -127,9 +127,9 @@ jobs:
       - name: TDD Verification
         run: |
           echo "Performing TDD verification checks..."
-
+          
           # Check if tests exist for all modules
-          python - <<EOF
+          cat > check_tests.py << 'EOF'
           import os
           import sys
           from pathlib import Path
@@ -150,7 +150,7 @@ jobs:
                   module_path = '/'.join(module_parts[1:])
                   test_file = test_dir / f"test_{module_path}.py"
                   component_test = test_dir / "components" / f"test_{module_parts[-1]}.py"
-
+                  
                   if not test_file.exists() and not component_test.exists():
                       missing_tests.append(module)
 
@@ -161,14 +161,15 @@ jobs:
           else:
               print("All modules have corresponding test files.")
           EOF
-
+          python check_tests.py
+          
           # Check test coverage threshold
           coverage_threshold=60
           coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
-
+          
           echo "Current test coverage: ${coverage_result}%"
           echo "Required minimum coverage: ${coverage_threshold}%"
-
+          
           if (( $(echo "$coverage_result < $coverage_threshold" | bc -l) )); then
             echo "Error: Test coverage is below the required threshold of ${coverage_threshold}%"
             exit 1
@@ -186,9 +187,9 @@ jobs:
       - name: Check test structure
         run: |
           echo "Validating test structure..."
-
+          
           # Check for arrange-act-assert pattern in tests
-          python - <<EOF
+          cat > check_test_structure.py << 'EOF'
           import os
           import re
           from pathlib import Path
@@ -200,18 +201,18 @@ jobs:
               if test_file.name.startswith('test_') and not test_file.name.startswith('conftest'):
                   with open(test_file, 'r') as f:
                       content = f.read()
-
+                      
                       # Check for test functions
                       test_funcs = re.findall(r'def (test_[a-zA-Z0-9_]+)', content)
-
+                      
                       for func in test_funcs:
                           # Extract function body
                           pattern = rf'def {func}.*?:(.*?)(?=\n\S|\Z)'
                           matches = re.search(pattern, content, re.DOTALL)
-
+                          
                           if matches:
                               func_body = matches.group(1)
-
+                              
                               # Simple heuristic for arrange-act-assert
                               if not (
                                   # Look for arranging variables and mocks
@@ -232,18 +233,20 @@ jobs:
           else:
               print("All tests appear to follow the arrange-act-assert pattern.")
           EOF
+          python check_test_structure.py
 
       - name: TDD Workflow Summary
         run: |
           echo "## TDD Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "✅ TDD verification completed" >> $GITHUB_STEP_SUMMARY
-
+          
           # Add coverage information
           coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}')
           echo "- Test coverage: ${coverage_result}" >> $GITHUB_STEP_SUMMARY
-
+          
           # Add test counts
           unit_tests=$(python -m pytest tests/components --collect-only -q | wc -l)
           integration_tests=$(python -m pytest tests/integration --collect-only -q | wc -l)
-          echo "- Unit tests: ${unit_tests}" >> $GITHUB_STEP_SUMMARY
-          echo "- Integration tests: ${integration_tests}" >> $GITHUB_STEP_SUMMARY
+          echo "- Unit tests: ${unit_tests}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Integration tests: ${integration_tests}" >> "$GITHUB_STEP_SUMMARY"
+

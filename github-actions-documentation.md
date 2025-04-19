@@ -41,7 +41,7 @@ The repository contains three GitHub Actions workflows:
 ### Areas for Improvement
 1. **Test Pattern Issue** - Fixed the wildcard pattern issue (`test_*`) in test paths
 2. **Installation Resilience** - The approach to dependency installation could be improved with better error handling
-3. **Service Health Check** - The Qdrant health check is implemented inline and could be extracted to a reusable script
+3. **Service Health Check** - Extracted the Qdrant health check into a reusable script
 4. **Test Selection** - The selective test running approach might miss regressions in other tests
 
 ## 2. Publish Workflow

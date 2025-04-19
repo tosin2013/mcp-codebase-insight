@@ -169,7 +169,7 @@ jobs:
         run: |
           echo "Creating Qdrant collection for testing..."
           # Create a basic Python script to initialize the collection
-          cat > init_qdrant.py << EOF
+          cat > init_qdrant.py << 'EOF'
           import os
           from qdrant_client import QdrantClient
           from qdrant_client.http import models
