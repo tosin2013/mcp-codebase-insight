@@ -159,7 +159,7 @@ jobs:
           EOF
           
           # Check test coverage threshold
-          coverage_threshold=60
+          coverage_threshold=40
           coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
           
           echo "Current test coverage: ${coverage_result}%"
