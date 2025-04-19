@@ -173,9 +173,9 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3.2.1
+        uses: codecov/codecov-action@v5.4.2
         with:
-          file: ./coverage.xml
+          files: ./coverage.xml
           name: codecov-tdd
           fail_ci_if_error: false
 
