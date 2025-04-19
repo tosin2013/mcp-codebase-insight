@@ -1,4 +1,5 @@
 import pytest
+import pytest_asyncio
 import uuid
 import sys
 import os
@@ -14,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def test_metadata() -> Dict:
     """Standard test metadata for consistency across tests."""
     return {
@@ -25,11 +26,11 @@ async def test_metadata() -> Dict:
         "tags": ["test", "vector"]
     }
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def embedder():
     return SentenceTransformerEmbedding()
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def vector_store(test_config: ServerConfig, embedder):
     store = VectorStore(test_config.qdrant_url, embedder)
     await store.initialize()

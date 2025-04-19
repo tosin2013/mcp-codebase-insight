@@ -9,8 +9,8 @@ DEFAULT_VERSION="3.11"
 PYTHON_VERSION=${1:-$DEFAULT_VERSION}
 
 # Validate Python version
-if [[ ! "$PYTHON_VERSION" =~ ^3\.(9|10|11)$ ]]; then
-    echo "Error: Python version must be 3.9, 3.10, or 3.11"
+if [[ ! "$PYTHON_VERSION" =~ ^3\.(10|11|12|13)$ ]]; then
+    echo "Error: Python version must be 3.10, 3.11, 3.12 or 3.13."
     echo "Usage: $0 [python-version]"
     echo "Example: $0 3.10"
     exit 1
@@ -111,18 +111,15 @@ if [ "$PYTHON_VERSION" = "3.9" ]; then
     sed -i.bak 's/torch>=2.0.0/torch>=1.13.0,<2.0.0/' requirements.in.tmp 2>/dev/null || sed -i '' 's/torch>=2.0.0/torch>=1.13.0,<2.0.0/' requirements.in.tmp
     sed -i.bak 's/networkx>=.*$/networkx>=2.8.0,<3.0/' requirements.in.tmp 2>/dev/null || sed -i '' 's/networkx>=.*$/networkx>=2.8.0,<3.0/' requirements.in.tmp
     # Keep starlette constraint for Python 3.9
-elif [ "$PYTHON_VERSION" = "3.10" ] || [ "$PYTHON_VERSION" = "3.11" ]; then
+elif [ "$PYTHON_VERSION" = "3.10" ] || [ "$PYTHON_VERSION" = "3.11" ] || [ "$PYTHON_VERSION" = "3.12" ] || [ "$PYTHON_VERSION" = "3.13" ]; then
     # Python 3.10/3.11-specific adjustments
     sed -i.bak 's/networkx>=.*$/networkx>=2.8.0/' requirements.in.tmp 2>/dev/null || sed -i '' 's/networkx>=.*$/networkx>=2.8.0/' requirements.in.tmp
     
     # Modify starlette constraint for Python 3.10/3.11 (for diagnostic purposes)
+    # Also apply for Python 3.12/3.13
     echo "Modifying starlette constraint for Python $PYTHON_VERSION to diagnose dependency conflicts..."
     sed -i.bak 's/starlette>=0.27.0,<0.28.0/starlette>=0.27.0/' requirements.in.tmp 2>/dev/null || \
     sed -i '' 's/starlette>=0.27.0,<0.28.0/starlette>=0.27.0/' requirements.in.tmp
-    
-    # Diagnostic output to verify the change
-    echo "Modified starlette constraint in requirements.in.tmp:"
-    grep "starlette" requirements.in.tmp || echo "No starlette constraint found"
 fi
 
 # Special handling for private packages
@@ -149,7 +146,7 @@ if [ $COMPILE_SUCCESS -eq 0 ]; then
         echo "torch>=1.13.0,<2.0.0" >> requirements.in.basic
         # Keep original starlette constraint
         grep "starlette" requirements.in >> requirements.in.basic
-    elif [ "$PYTHON_VERSION" = "3.10" ] || [ "$PYTHON_VERSION" = "3.11" ]; then
+    elif [ "$PYTHON_VERSION" = "3.10" ] || [ "$PYTHON_VERSION" = "3.11" ] || [ "$PYTHON_VERSION" = "3.12" ] || [ "$PYTHON_VERSION" = "3.13" ]; then
         echo "# Conservative dependencies for Python $PYTHON_VERSION" >> requirements.in.basic
         echo "networkx>=2.8.0" >> requirements.in.basic
         # Modified starlette constraint for 3.10/3.11

@@ -1,0 +1,504 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.13.2, pytest-8.3.5, pluggy-1.5.0 -- /Users/tosinakinosho/workspaces/mcp-codebase-insight/.venv/bin/python3.13
+cachedir: .pytest_cache
+rootdir: /Users/tosinakinosho/workspaces/mcp-codebase-insight
+configfile: pytest.ini
+testpaths: tests
+plugins: cov-6.0.0, anyio-4.9.0, asyncio-0.26.0
+asyncio: mode=Mode.STRICT, asyncio_default_fixture_loop_scope=session, asyncio_default_test_loop_scope=function
+collecting ... collected 97 items
+
+tests/components/test_core_components.py::test_adr_manager FAILED        [  1%]
+tests/components/test_core_components.py::test_knowledge_base PASSED     [  2%]
+tests/components/test_core_components.py::test_task_manager PASSED       [  3%]
+tests/components/test_core_components.py::test_metrics_manager PASSED    [  4%]
+tests/components/test_core_components.py::test_health_manager PASSED     [  5%]
+tests/components/test_core_components.py::test_cache_manager PASSED      [  6%]
+tests/components/test_core_components.py::test_documentation_manager PASSED [  7%]
+tests/components/test_core_components.py::test_debug_system PASSED       [  8%]
+tests/components/test_embeddings.py::test_embedder_initialization PASSED [  9%]
+tests/components/test_embeddings.py::test_embedder_embedding PASSED      [ 10%]
+tests/components/test_knowledge_base.py::test_knowledge_base_initialization PASSED [ 11%]
+tests/components/test_knowledge_base.py::test_add_and_get_pattern PASSED [ 12%]
+tests/components/test_knowledge_base.py::test_find_similar_patterns PASSED [ 13%]
+tests/components/test_knowledge_base.py::test_update_pattern PASSED      [ 14%]
+tests/components/test_sse_components.py::test_mcp_server_initialization PASSED [ 15%]
+tests/components/test_sse_components.py::test_register_tools PASSED      [ 16%]
+tests/components/test_sse_components.py::test_get_starlette_app FAILED   [ 17%]
+tests/components/test_sse_components.py::test_create_sse_server FAILED   [ 18%]
+tests/components/test_sse_components.py::test_vector_search_tool FAILED  [ 19%]
+tests/components/test_sse_components.py::test_knowledge_search_tool FAILED [ 20%]
+tests/components/test_sse_components.py::test_adr_list_tool FAILED       [ 21%]
+tests/components/test_sse_components.py::test_task_status_tool FAILED    [ 22%]
+tests/components/test_sse_components.py::test_sse_handle_connect FAILED  [ 23%]
+tests/components/test_sse_components.py::test_sse_backpressure_handling PASSED [ 24%]
+tests/components/test_sse_components.py::test_sse_connection_management PASSED [ 25%]
+tests/components/test_sse_components.py::test_sse_keep_alive PASSED      [ 26%]
+tests/components/test_sse_components.py::test_sse_error_handling PASSED  [ 27%]
+tests/components/test_stdio_components.py::test_stdio_tool_registration SKIPPED [ 28%]
+tests/components/test_stdio_components.py::test_stdio_message_streaming SKIPPED [ 29%]
+tests/components/test_stdio_components.py::test_stdio_error_handling SKIPPED [ 30%]
+tests/components/test_stdio_components.py::test_stdio_message_ordering SKIPPED [ 31%]
+tests/components/test_stdio_components.py::test_stdio_large_message_handling SKIPPED [ 32%]
+tests/components/test_task_manager.py::test_task_manager_initialization FAILED [ 34%]
+tests/components/test_task_manager.py::test_create_and_get_task FAILED   [ 35%]
+
+=================================== FAILURES ===================================
+_______________________________ test_adr_manager _______________________________
+
+test_config = ServerConfig(host='localhost', port=8000, log_level='DEBUG', qdrant_url='http://localhost:6333', qdrant_api_key=None, ...cache_dir=PosixPath('.test_cache/cache'), _state={'initialized': False, 'components': {}, 'metrics': {}, 'errors': []})
+test_adr = {'consequences': 'Testing will be successful', 'context': 'This is a test ADR for testing', 'decision': 'We decided to...ion ready'], 'description': 'A test option for the ADR.', 'pros': ['Easy to implement'], 'title': 'Test Option'}], ...}
+
+    @pytest.mark.asyncio
+    async def test_adr_manager(test_config: ServerConfig, test_adr: dict):
+        """Test ADR manager functions."""
+        manager = ADRManager(test_config)
+    
+        # Test creation
+>       adr = await manager.create_adr(
+            title=test_adr["title"],
+            context=test_adr["context"],
+            options=test_adr["options"],
+            decision=test_adr["decision"]
+        )
+
+tests/components/test_core_components.py:31: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <src.mcp_codebase_insight.core.adr.ADRManager object at 0x14793c050>
+title = 'Test ADR', context = 'This is a test ADR for testing'
+options = [{'cons': ['Not production ready'], 'description': 'A test option for the ADR.', 'pros': ['Easy to implement'], 'title': 'Test Option'}]
+decision = 'We decided to test the ADR system', consequences = None
+
+    async def create_adr(
+        self,
+        title: str,
+        context: dict,
+        options: List[dict],
+        decision: str,
+        consequences: Optional[Dict[str, List[str]]] = None
+    ) -> ADR:
+        """Create a new ADR."""
+        adr_id = uuid4()
+        now = datetime.utcnow()
+    
+        # Convert context dict to ADRContext
+        adr_context = ADRContext(
+>           problem=context["problem"],
+            constraints=context["constraints"],
+            assumptions=context.get("assumptions"),
+            background=context.get("background")
+        )
+E       TypeError: string indices must be integers, not 'str'
+
+src/mcp_codebase_insight/core/adr.py:150: TypeError
+---------------------------- Captured stdout setup -----------------------------
+Creating session-scoped event loop for process 8089
+------------------------------ Captured log setup ------------------------------
+INFO     conftest:conftest.py:49 Creating session-scoped event loop for process 8089
+____________________________ test_get_starlette_app ____________________________
+
+mock_create_sse = <MagicMock name='create_sse_server' id='6027601504'>
+mcp_server = <src.mcp_codebase_insight.core.sse.MCP_CodebaseInsightServer object at 0x16763ee90>
+
+    @patch('mcp_codebase_insight.core.sse.create_sse_server')
+    async def test_get_starlette_app(mock_create_sse, mcp_server):
+        """Test getting the Starlette app for the MCP server."""
+        # Set up the mock
+        mock_app = MagicMock()
+        mock_create_sse.return_value = mock_app
+    
+        # Get the Starlette app
+        app = mcp_server.get_starlette_app()
+    
+        # Verify tools were registered
+        assert mcp_server.tools_registered is True
+    
+        # Verify create_sse_server was called with the MCP server
+>       mock_create_sse.assert_called_once_with(mcp_server.mcp_server)
+
+tests/components/test_sse_components.py:175: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='create_sse_server' id='6027601504'>
+args = (<mcp.server.fastmcp.server.FastMCP object at 0x16763d310>,), kwargs = {}
+msg = "Expected 'create_sse_server' to be called once. Called 0 times."
+
+    def assert_called_once_with(self, /, *args, **kwargs):
+        """assert that the mock was called exactly once and that that call was
+        with the specified arguments."""
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to be called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'create_sse_server' to be called once. Called 0 times.
+
+/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/unittest/mock.py:988: AssertionError
+---------------------------- Captured stdout setup -----------------------------
+{"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.416925Z"}
+------------------------------ Captured log setup ------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.416925Z"}
+----------------------------- Captured stdout call -----------------------------
+{"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.421638Z"}
+{"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.421754Z"}
+{"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.421801Z"}
+{"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.426367Z"}
+{"event": "Initializing SSE transport with endpoint: /sse", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.426490Z"}
+{"event": "Created SSE server with routes:", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427035Z"}
+{"event": "Route: /health, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427173Z"}
+{"event": "Route: /sse, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427221Z"}
+{"event": "Route: /message, methods: {'POST'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427268Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.421638Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.421754Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.421801Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.426367Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Initializing SSE transport with endpoint: /sse", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.426490Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Created SSE server with routes:", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427035Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /health, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427173Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /sse, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427221Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /message, methods: {'POST'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.427268Z"}
+____________________________ test_create_sse_server ____________________________
+
+mock_starlette = <MagicMock name='Starlette' id='6027603184'>
+mock_transport = <MagicMock name='SseServerTransport' id='6027604192'>
+
+    @patch('mcp_codebase_insight.core.sse.SseServerTransport')
+    @patch('mcp_codebase_insight.core.sse.Starlette')
+    async def test_create_sse_server(mock_starlette, mock_transport):
+        """Test creating the SSE server."""
+        # Set up mocks
+        mock_mcp = MagicMock(spec=FastMCP)
+        mock_transport_instance = MagicMock()
+        mock_transport.return_value = mock_transport_instance
+        mock_app = MagicMock()
+        mock_starlette.return_value = mock_app
+    
+        # Create the SSE server
+        app = create_sse_server(mock_mcp)
+    
+        # Verify SseServerTransport was initialized correctly
+>       mock_transport.assert_called_once_with("/messages/")
+
+tests/components/test_sse_components.py:196: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <MagicMock name='SseServerTransport' id='6027604192'>
+args = ('/messages/',), kwargs = {}
+msg = "Expected 'SseServerTransport' to be called once. Called 0 times."
+
+    def assert_called_once_with(self, /, *args, **kwargs):
+        """assert that the mock was called exactly once and that that call was
+        with the specified arguments."""
+        if not self.call_count == 1:
+            msg = ("Expected '%s' to be called once. Called %s times.%s"
+                   % (self._mock_name or 'mock',
+                      self.call_count,
+                      self._calls_repr()))
+>           raise AssertionError(msg)
+E           AssertionError: Expected 'SseServerTransport' to be called once. Called 0 times.
+
+/opt/homebrew/Cellar/python@3.13/3.13.2/Frameworks/Python.framework/Versions/3.13/lib/python3.13/unittest/mock.py:988: AssertionError
+----------------------------- Captured stdout call -----------------------------
+{"event": "Initializing SSE transport with endpoint: /sse", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463132Z"}
+{"event": "Created SSE server with routes:", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463323Z"}
+{"event": "Route: /health, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463437Z"}
+{"event": "Route: /sse, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463486Z"}
+{"event": "Route: /message, methods: {'POST'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463527Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Initializing SSE transport with endpoint: /sse", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463132Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Created SSE server with routes:", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463323Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /health, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463437Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /sse, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463486Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /message, methods: {'POST'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.463527Z"}
+___________________________ test_vector_search_tool ____________________________
+
+mcp_server = <src.mcp_codebase_insight.core.sse.MCP_CodebaseInsightServer object at 0x1676368b0>
+
+    async def test_vector_search_tool(mcp_server):
+        """Test the vector search tool."""
+        # Make sure tools are registered
+        if not mcp_server.tools_registered:
+            mcp_server.register_tools()
+    
+        # Mock the FastMCP add_tool method to capture calls
+        with patch.object(mcp_server.mcp_server, 'add_tool') as mock_add_tool:
+            # Re-register the vector search tool
+            mcp_server._register_vector_search()
+    
+            # Verify tool was registered with correct parameters
+            mock_add_tool.assert_called_once()
+            args, kwargs = mock_add_tool.call_args
+>           assert args[0] in ("vector-search", "search-vector", "vector_search")  # Accept possible variants
+E           IndexError: tuple index out of range
+
+tests/components/test_sse_components.py:219: IndexError
+---------------------------- Captured stdout setup -----------------------------
+{"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.501717Z"}
+------------------------------ Captured log setup ------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.501717Z"}
+----------------------------- Captured stdout call -----------------------------
+{"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.502070Z"}
+{"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.502127Z"}
+{"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.502166Z"}
+{"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.504726Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.502070Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.502127Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.502166Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.504726Z"}
+__________________________ test_knowledge_search_tool __________________________
+
+mcp_server = <src.mcp_codebase_insight.core.sse.MCP_CodebaseInsightServer object at 0x167634640>
+
+    async def test_knowledge_search_tool(mcp_server):
+        """Test the knowledge search tool."""
+        # Make sure tools are registered
+        if not mcp_server.tools_registered:
+            mcp_server.register_tools()
+    
+        # Mock the FastMCP add_tool method to capture calls
+        with patch.object(mcp_server.mcp_server, 'add_tool') as mock_add_tool:
+            # Re-register the knowledge search tool
+            mcp_server._register_knowledge()
+    
+            # Verify tool was registered with correct parameters
+            mock_add_tool.assert_called_once()
+            args = mock_add_tool.call_args[0]
+>           assert args[0] == "search-knowledge"  # Tool name
+E           IndexError: tuple index out of range
+
+tests/components/test_sse_components.py:239: IndexError
+---------------------------- Captured stdout setup -----------------------------
+{"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.510921Z"}
+------------------------------ Captured log setup ------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.510921Z"}
+----------------------------- Captured stdout call -----------------------------
+{"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.511246Z"}
+{"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.511300Z"}
+{"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.511339Z"}
+{"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.513969Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.511246Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.511300Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.511339Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.513969Z"}
+______________________________ test_adr_list_tool ______________________________
+
+mcp_server = <src.mcp_codebase_insight.core.sse.MCP_CodebaseInsightServer object at 0x16760f1d0>
+
+    async def test_adr_list_tool(mcp_server):
+        """Test the ADR list tool."""
+        # Make sure tools are registered
+        if not mcp_server.tools_registered:
+            mcp_server.register_tools()
+    
+        # Mock the FastMCP add_tool method to capture calls
+        with patch.object(mcp_server.mcp_server, 'add_tool') as mock_add_tool:
+            # Re-register the ADR list tool
+            mcp_server._register_adr()
+    
+            # Verify tool was registered with correct parameters
+            mock_add_tool.assert_called_once()
+            args = mock_add_tool.call_args[0]
+>           assert args[0] == "list-adrs"  # Tool name
+E           IndexError: tuple index out of range
+
+tests/components/test_sse_components.py:258: IndexError
+---------------------------- Captured stdout setup -----------------------------
+{"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.520244Z"}
+------------------------------ Captured log setup ------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.520244Z"}
+----------------------------- Captured stdout call -----------------------------
+{"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.520568Z"}
+{"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.520642Z"}
+{"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.520687Z"}
+{"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.523206Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.520568Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.520642Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.520687Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.523206Z"}
+____________________________ test_task_status_tool _____________________________
+
+mcp_server = <src.mcp_codebase_insight.core.sse.MCP_CodebaseInsightServer object at 0x167427350>
+
+    async def test_task_status_tool(mcp_server):
+        """Test the task status tool."""
+        # Make sure tools are registered
+        if not mcp_server.tools_registered:
+            mcp_server.register_tools()
+    
+        # Mock the FastMCP add_tool method to capture calls
+        with patch.object(mcp_server.mcp_server, 'add_tool') as mock_add_tool:
+            # Re-register the task status tool
+            mcp_server._register_task()
+    
+            # Verify tool was registered with correct parameters
+            mock_add_tool.assert_called_once()
+            args = mock_add_tool.call_args[0]
+>           assert args[0] == "get-task-status"  # Tool name
+E           IndexError: tuple index out of range
+
+tests/components/test_sse_components.py:277: IndexError
+---------------------------- Captured stdout setup -----------------------------
+{"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.529946Z"}
+------------------------------ Captured log setup ------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP Codebase Insight server initialized", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.529946Z"}
+----------------------------- Captured stdout call -----------------------------
+{"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.530262Z"}
+{"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.530316Z"}
+{"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.530356Z"}
+{"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.533000Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Registering tools with MCP server", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.530262Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Some critical dependencies are not available: task_manager", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.530316Z"}
+WARNING  src.mcp_codebase_insight.core.sse:logger.py:75 {"event": "Tools requiring these dependencies will not be registered", "logger": "src.mcp_codebase_insight.core.sse", "level": "warning", "timestamp": "2025-04-18T06:19:06.530356Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "MCP tools registration completed", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.533000Z"}
+___________________________ test_sse_handle_connect ____________________________
+
+mock_starlette = <MagicMock name='Starlette' id='6027603856'>
+mock_transport = <MagicMock name='SseServerTransport' id='6027607216'>
+
+    @patch('mcp_codebase_insight.core.sse.SseServerTransport')
+    @patch('mcp_codebase_insight.core.sse.Starlette')
+    async def test_sse_handle_connect(mock_starlette, mock_transport):
+        """Test the SSE connection handling functionality."""
+        # Set up mocks
+        mock_transport_instance = MagicMock()
+        mock_transport.return_value = mock_transport_instance
+    
+        mock_mcp = MagicMock(spec=FastMCP)
+        # For MCP v1.5.0, create a mock run method instead of initialization options
+        mock_mcp.run = AsyncMock()
+    
+        mock_request = MagicMock()
+        mock_request.client = "127.0.0.1"
+        mock_request.scope = {"type": "http"}
+    
+        # Mock the transport's connect_sse method
+        mock_streams = (AsyncMock(), AsyncMock())
+        mock_cm = MagicMock()
+        mock_cm.__aenter__ = AsyncMock(return_value=mock_streams)
+        mock_cm.__aexit__ = AsyncMock()
+        mock_transport_instance.connect_sse.return_value = mock_cm
+    
+        # Create a mock handler and add it to our mock app instance
+        handle_sse = AsyncMock()
+        mock_app = MagicMock()
+        mock_starlette.return_value = mock_app
+    
+        # Set up a mock route that we can access
+        mock_route = MagicMock()
+        mock_route.path = "/sse/"
+        mock_route.endpoint = handle_sse
+        mock_app.routes = [mock_route]
+    
+        # Create the SSE server
+        app = create_sse_server(mock_mcp)
+    
+        # Extract the actual handler from the route configuration
+>       routes_kwarg = mock_starlette.call_args.kwargs.get('routes', [])
+E       AttributeError: 'NoneType' object has no attribute 'kwargs'
+
+tests/components/test_sse_components.py:320: AttributeError
+----------------------------- Captured stdout call -----------------------------
+{"event": "Initializing SSE transport with endpoint: /sse", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543689Z"}
+{"event": "Created SSE server with routes:", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543845Z"}
+{"event": "Route: /health, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543945Z"}
+{"event": "Route: /sse, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543987Z"}
+{"event": "Route: /message, methods: {'POST'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.544024Z"}
+------------------------------ Captured log call -------------------------------
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Initializing SSE transport with endpoint: /sse", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543689Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Created SSE server with routes:", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543845Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /health, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543945Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /sse, methods: {'HEAD', 'GET'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.543987Z"}
+INFO     src.mcp_codebase_insight.core.sse:logger.py:68 {"event": "Route: /message, methods: {'POST'}", "logger": "src.mcp_codebase_insight.core.sse", "level": "info", "timestamp": "2025-04-18T06:19:06.544024Z"}
+_______________________ test_task_manager_initialization _______________________
+
+task_manager = <async_generator object task_manager at 0x1675fac20>
+
+    @pytest.mark.asyncio
+    async def test_task_manager_initialization(task_manager: TaskManager):
+        """Test that task manager initializes correctly."""
+        assert task_manager is not None
+>       assert task_manager.config is not None
+E       AttributeError: 'async_generator' object has no attribute 'config'
+
+tests/components/test_task_manager.py:25: AttributeError
+___________________________ test_create_and_get_task ___________________________
+
+task_manager = <async_generator object task_manager at 0x113b71be0>
+test_code = '\ndef example_function():\n    """This is a test function for task manager tests."""\n    return "Hello, world!"\n\nc...Class:\n    def __init__(self):\n        self.value = 42\n        \n    def method(self):\n        return self.value\n'
+
+    @pytest.mark.asyncio
+    async def test_create_and_get_task(task_manager: TaskManager, test_code: str):
+        """Test creating and retrieving tasks."""
+        # Create task
+>       task = await task_manager.create_task(
+            type="code_analysis",
+            title="Test task",
+            description="Test task description",
+            context={"code": test_code}
+        )
+E       AttributeError: 'async_generator' object has no attribute 'create_task'
+
+tests/components/test_task_manager.py:31: AttributeError
+--------------------------- Captured stdout teardown ---------------------------
+Cleaning up test collection: test_collection_d3b69ea7
+HTTP Request: DELETE http://localhost:6333/collections/test_collection_d3b69ea7 "HTTP/1.1 200 OK"
+Found 0 server states at end of session
+---------------------------- Captured log teardown -----------------------------
+INFO     conftest:conftest.py:169 Cleaning up test collection: test_collection_d3b69ea7
+INFO     httpx:_client.py:1025 HTTP Request: DELETE http://localhost:6333/collections/test_collection_d3b69ea7 "HTTP/1.1 200 OK"
+INFO     conftest:conftest.py:525 Found 0 server states at end of session
+
+---------- coverage: platform darwin, python 3.13.2-final-0 ----------
+Name                                                Stmts   Miss Branch BrPart  Cover   Missing
+-----------------------------------------------------------------------------------------------
+src/mcp_codebase_insight/__init__.py                    3      0      0      0   100%
+src/mcp_codebase_insight/__main__.py                   28     28      0      0     0%   3-76
+src/mcp_codebase_insight/asgi.py                        5      5      0      0     0%   3-11
+src/mcp_codebase_insight/core/__init__.py               2      0      0      0   100%
+src/mcp_codebase_insight/core/adr.py                  127     71     26      0    37%   75-111, 118-134, 157-180, 184-190, 200-213, 220-227, 231-233
+src/mcp_codebase_insight/core/cache.py                168     42     68     26    68%   33, 36, 42->exit, 70-71, 77-78, 90, 97->exit, 102-103, 109, 124-125, 142-143, 160-161, 167-169, 173-176, 181, 187, 193, 199, 205, 217, 220, 225, 228->exit, 234, 236->238, 238->exit, 243-249, 254, 258, 261->265, 265->270, 267-268, 274
+src/mcp_codebase_insight/core/component_status.py       8      0      0      0   100%
+src/mcp_codebase_insight/core/config.py                63     23     14      4    60%   38, 44-45, 47-51, 64-67, 91-105, 109, 117, 121-122
+src/mcp_codebase_insight/core/debug.py                122     69     34      0    34%   58-78, 82-97, 122-128, 138-153, 161-168, 172-205
+src/mcp_codebase_insight/core/di.py                    99     62     14      0    33%   40, 53-76, 80-82, 86-97, 101-106, 110-112, 116-120, 124-132, 136-144, 148-156, 160-169
+src/mcp_codebase_insight/core/documentation.py        165    111     52      1    25%   53-77, 84-100, 134, 150-167, 175-189, 201-214, 228-316
+src/mcp_codebase_insight/core/embeddings.py            77     28     18      3    61%   29->exit, 48-58, 79-83, 88, 104-106, 114-128, 132
+src/mcp_codebase_insight/core/errors.py                96     27      2      0    70%   55-58, 62, 77, 88, 99, 110, 121, 132, 143, 154, 165, 176, 187, 198, 209, 220, 231, 242, 253, 264, 275, 279-282
+src/mcp_codebase_insight/core/health.py               140     58     26      8    54%   52-71, 75-98, 111, 113, 128, 146, 156-162, 168->178, 170-171, 180-181, 190-191, 215-216, 232-233, 235-236, 259-260, 262-263
+src/mcp_codebase_insight/core/knowledge.py            253    100     74     25    55%   95, 105->109, 114, 119-124, 129->exit, 131-138, 143->exit, 145-151, 155, 167, 170->175, 172-173, 208->223, 230, 250, 252->254, 254->256, 257, 258->260, 261, 263, 265, 270->285, 298, 303, 305, 307, 320->318, 335-351, 361-379, 404-421, 432-445, 457-470, 479-488, 496-503, 507-514, 518-524
+src/mcp_codebase_insight/core/metrics.py              108     41     38     11    58%   43, 47, 58-59, 62-65, 70, 74, 80-83, 89-100, 111, 122, 127-128, 138, 145, 151, 153, 165-183
+src/mcp_codebase_insight/core/prompts.py               72     72     16      0     0%   3-262
+src/mcp_codebase_insight/core/sse.py                  220    116     40      9    46%   29-37, 62-108, 130-141, 153-154, 162, 171-178, 186-188, 202-207, 239, 280-285, 293, 302-303, 315->321, 330-331, 338-339, 343-344, 349-380, 393-394, 398-419, 432-433, 437-458, 471-472, 476-483, 502->504
+src/mcp_codebase_insight/core/state.py                168    120     54      0    22%   48-53, 63-77, 84-93, 97-98, 102, 106-144, 148, 161-162, 167, 171, 175, 179, 183-335
+src/mcp_codebase_insight/core/task_tracker.py          48     28     12      0    33%   29-37, 45-52, 60-78, 86, 94, 102, 106-107
+src/mcp_codebase_insight/core/tasks.py                259    172     74      1    26%   89-113, 117-134, 138-140, 144-162, 203, 217-233, 237-245, 254-264, 268-318, 323-341, 349-357, 363-377, 384-397, 404-415, 422-432, 439-462
+src/mcp_codebase_insight/core/vector_store.py         177     73     26      5    58%   62->67, 78->93, 84-90, 99-100, 119-122, 127-129, 145-146, 158-159, 164-165, 170-184, 200-201, 233-235, 264-266, 270, 290, 327-393, 411
+src/mcp_codebase_insight/models.py                     18      0      0      0   100%
+src/mcp_codebase_insight/server.py                    630    536    128      0    12%   55-109, 121-138, 142-1491, 1549-1550, 1554-1561, 1585-1590, 1595, 1599-1616, 1620-1622, 1626, 1638-1664, 1668-1688
+src/mcp_codebase_insight/server_test_isolation.py      48     38     18      0    15%   31-39, 44-99
+src/mcp_codebase_insight/utils/__init__.py              2      0      0      0   100%
+src/mcp_codebase_insight/utils/logger.py               29      5      0      0    83%   52-53, 82, 89, 97
+src/mcp_codebase_insight/version.py                    14     14      2      0     0%   3-22
+-----------------------------------------------------------------------------------------------
+TOTAL                                                3149   1839    736     93    37%
+
+=========================== short test summary info ============================
+FAILED tests/components/test_core_components.py::test_adr_manager - TypeError: string indices must be integers, not 'str'
+FAILED tests/components/test_sse_components.py::test_get_starlette_app - AssertionError: Expected 'create_sse_server' to be called once. Called 0 times.
+FAILED tests/components/test_sse_components.py::test_create_sse_server - AssertionError: Expected 'SseServerTransport' to be called once. Called 0 times.
+FAILED tests/components/test_sse_components.py::test_vector_search_tool - IndexError: tuple index out of range
+FAILED tests/components/test_sse_components.py::test_knowledge_search_tool - IndexError: tuple index out of range
+FAILED tests/components/test_sse_components.py::test_adr_list_tool - IndexError: tuple index out of range
+FAILED tests/components/test_sse_components.py::test_task_status_tool - IndexError: tuple index out of range
+FAILED tests/components/test_sse_components.py::test_sse_handle_connect - AttributeError: 'NoneType' object has no attribute 'kwargs'
+FAILED tests/components/test_task_manager.py::test_task_manager_initialization - AttributeError: 'async_generator' object has no attribute 'config'
+FAILED tests/components/test_task_manager.py::test_create_and_get_task - AttributeError: 'async_generator' object has no attribute 'create_task'
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 10 failures !!!!!!!!!!!!!!!!!!!!!!!!!!
+============ 10 failed, 19 passed, 5 skipped, 35 warnings in 9.24s =============

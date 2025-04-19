@@ -281,3 +281,6 @@ module_summaries/
 logs/
 references/private/
 prompts/
+
+# Ignore Qdrant data storage directory
+qdrant_data/

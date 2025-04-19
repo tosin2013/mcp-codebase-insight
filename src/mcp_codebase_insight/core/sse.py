@@ -266,7 +266,7 @@ class MCP_CodebaseInsightServer:
             server_state: The global server state providing access to components
         """
         self.state = server_state
-        self.mcp_server = FastMCP()
+        self.mcp_server = FastMCP(name="MCP-Codebase-Insight")
         self.tools_registered = False
         self._starlette_app = None  # Cache the Starlette app
         logger.info("MCP Codebase Insight server initialized")

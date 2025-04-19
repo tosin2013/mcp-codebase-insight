@@ -208,16 +208,18 @@ class KnowledgeBase:
         if self.vector_store:
             # Generate embedding for the pattern
             combined_text = f"{pattern.name}\n{pattern.description}\n{pattern.content}"
-            embedding = await self.vector_store.embedder.embed(combined_text)
-            
-            await self.vector_store.store_pattern(
-                pattern_id=str(pattern.id),
-                title=pattern.name,
-                description=pattern.description,
-                pattern_type=pattern.type.value,
-                tags=pattern.tags or [],
-                embedding=embedding
-            )
+            try:
+                embedding = await self.vector_store.embedder.embed(combined_text)
+                await self.vector_store.store_pattern(
+                    pattern_id=str(pattern.id),
+                    title=pattern.name,
+                    description=pattern.description,
+                    pattern_type=pattern.type.value,
+                    tags=pattern.tags or [],
+                    embedding=embedding
+                )
+            except Exception as e:
+                print(f"Warning: Failed to store pattern vector: {e}")
         
         # Save pattern to file
         await self._save_pattern(pattern)
@@ -270,17 +272,18 @@ class KnowledgeBase:
         if self.vector_store:
             # Generate embedding for the updated pattern
             combined_text = f"{pattern.name}\n{pattern.description}\n{pattern.content}"
-            embedding = await self.vector_store.embedder.embed(combined_text)
-            
-            # Update pattern with embedding
-            await self.vector_store.update_pattern(
-                pattern_id=str(pattern.id),
-                title=pattern.name,
-                description=pattern.description,
-                pattern_type=pattern.type.value,
-                tags=pattern.tags or [],
-                embedding=embedding
-            )
+            try:
+                embedding = await self.vector_store.embedder.embed(combined_text)
+                await self.vector_store.update_pattern(
+                    pattern_id=str(pattern.id),
+                    title=pattern.name,
+                    description=pattern.description,
+                    pattern_type=pattern.type.value,
+                    tags=pattern.tags or [],
+                    embedding=embedding
+                )
+            except Exception as e:
+                print(f"Warning: Failed to update pattern vector: {e}")
         
         await self._save_pattern(pattern)
         return pattern
@@ -306,12 +309,20 @@ class KnowledgeBase:
         if tags:
             filter_conditions["tags"] = {"$all": tags}
             
-        # Search vectors
-        results = await self.vector_store.search(
-            text=query,
-            filter_conditions=filter_conditions,
-            limit=limit
-        )
+        # Search vectors with fallback on error
+        try:
+            results = await self.vector_store.search(
+                text=query,
+                filter_conditions=filter_conditions,
+                limit=limit
+            )
+        except Exception as e:
+            print(f"Warning: Semantic search failed ({e}), falling back to file-based search")
+            file_patterns = await self.list_patterns(pattern_type, confidence, tags)
+            return [
+                SearchResult(pattern=p, similarity_score=0.0)
+                for p in file_patterns[:limit]
+            ]
         
         # Load full patterns
         search_results = []
@@ -396,30 +407,12 @@ class KnowledgeBase:
 
     async def search_patterns(
         self,
-        query: str,
-        pattern_type: Optional[str] = None,
-        limit: int = 5
-    ) -> List[SearchResult]:
-        """Search for patterns using text query."""
-        try:
-            # Convert pattern_type string to enum if provided
-            pattern_type_enum = None
-            if pattern_type:
-                try:
-                    pattern_type_enum = PatternType(pattern_type)
-                except ValueError:
-                    pass  # Invalid pattern type, will be ignored
-            
-            # Use find_similar_patterns with the converted type
-            return await self.find_similar_patterns(
-                query=query,
-                pattern_type=pattern_type_enum,
-                limit=limit
-            )
-        except Exception as e:
-            print(f"Error searching patterns: {str(e)}")
-            return []
-
+        tags: Optional[List[str]] = None
+    ) -> List[Pattern]:
+        """Search for patterns by tags."""
+        # Delegate to list_patterns for tag-based filtering
+        return await self.list_patterns(tags=tags)
+    
     async def add_file_relationship(
         self,
         source_file: str,
@@ -522,3 +515,19 @@ class KnowledgeBase:
         
         with open(file_path, "w") as f:
             json.dump(source.model_dump(), f, indent=2, default=str)
+
+    async def delete_pattern(self, pattern_id: UUID) -> None:
+        """Delete a pattern by ID from knowledge base and vector store."""
+        # Delete from vector store if available
+        if self.vector_store:
+            try:
+                await self.vector_store.delete_pattern(str(pattern_id))
+            except Exception as e:
+                print(f"Warning: Failed to delete pattern vector: {e}")
+        # Delete pattern file
+        pattern_path = self.kb_dir / "patterns" / f"{pattern_id}.json"
+        if pattern_path.exists():
+            try:
+                pattern_path.unlink()
+            except Exception as e:
+                print(f"Warning: Failed to delete pattern file: {e}")

@@ -52,16 +52,13 @@ class CodebaseAnalyzer:
             
             await self.metrics_collector.record_cache_access(hit=False)
             
-            # Get embedding
-            vector = await self.vector_store.embed_text(code_text)
-            await self.metrics_collector.record_vector_query()
-            
             # Search for similar patterns
             similar_patterns = await self.vector_store.search(
-                vector,
+                text=code_text,
                 filter_params={"must": [{"key": "type", "match": {"value": "pattern"}}]},
                 limit=5
             )
+            await self.metrics_collector.record_vector_query()
             
             result = {
                 "patterns_found": len(similar_patterns),

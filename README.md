@@ -1,4 +1,4 @@
-# MCP Codebase Insight
+# MCP Codebase Insight - WIP
 
 > 🚧 **Development in Progress** 
 > 
