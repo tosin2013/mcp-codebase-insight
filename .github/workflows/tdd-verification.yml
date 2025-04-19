@@ -74,7 +74,7 @@ jobs:
       - name: Initialize Qdrant collection
         run: |
           echo "Creating Qdrant collection for testing..."
-          python - <<'EOF'
+          python - <<-'EOF'
           import os
           from qdrant_client import QdrantClient
           from qdrant_client.http import models
@@ -125,7 +125,7 @@ jobs:
           echo "Performing TDD verification checks..."
           
           # Check if tests exist for all modules
-          python - <<'EOF'
+          python - <<-'EOF'
           import os
           import sys
           from pathlib import Path
@@ -184,7 +184,7 @@ jobs:
           echo "Validating test structure..."
           
           # Check for arrange-act-assert pattern in tests
-          python - <<'EOF'
+          python - <<-'EOF'
           import os
           import re
           from pathlib import Path

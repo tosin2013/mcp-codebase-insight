@@ -68,7 +68,7 @@ jobs:
           mkdir -p local-packages
 
           # If there are private packages in repositories, clone them here
-          if [ ! -z "${{ secrets.PRIVATE_REPO_URL }}" ]; then
+          if [ -n "${{ secrets.PRIVATE_REPO_URL }}" ]; then
             echo "Setting up private package repository..."
 
             # Configure pip to use the private repository if provided
@@ -77,7 +77,7 @@ jobs:
             echo "index-url = https://pypi.org/simple" >> ~/.pip/pip.conf
 
             # Add the private repository with token if available
-            if [ ! -z "${{ secrets.PRIVATE_REPO_TOKEN }}" ]; then
+            if [ -n "${{ secrets.PRIVATE_REPO_TOKEN }}" ]; then
               echo "extra-index-url = ${{ secrets.PRIVATE_REPO_URL }}:${{ secrets.PRIVATE_REPO_TOKEN }}@simple" >> ~/.pip/pip.conf
             else
               echo "extra-index-url = ${{ secrets.PRIVATE_REPO_URL }}/simple" >> ~/.pip/pip.conf
@@ -85,9 +85,9 @@ jobs:
           fi
 
           # If there are local Git repositories for dependencies, clone them
-          if [ ! -z "${{ secrets.MCP_SERVER_QDRANT_REPO }}" ]; then
+          if [ -n "${{ secrets.MCP_SERVER_QDRANT_REPO }}" ]; then
             echo "Cloning mcp-server-qdrant from repository..."
-            git clone ${{ secrets.MCP_SERVER_QDRANT_REPO }} local-packages/mcp-server-qdrant
+            git clone "${{ secrets.MCP_SERVER_QDRANT_REPO }}" local-packages/mcp-server-qdrant
 
             # Install the package in development mode
             cd local-packages/mcp-server-qdrant
@@ -96,9 +96,9 @@ jobs:
           fi
 
           # Similarly for uvx package if needed
-          if [ ! -z "${{ secrets.UVX_REPO }}" ]; then
+          if [ -n "${{ secrets.UVX_REPO }}" ]; then
             echo "Cloning uvx from repository..."
-            git clone ${{ secrets.UVX_REPO }} local-packages/uvx
+            git clone "${{ secrets.UVX_REPO }}" local-packages/uvx
 
             # Install the package in development mode
             cd local-packages/uvx
@@ -163,7 +163,7 @@ jobs:
             echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}"
             echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server"
             echo "PYTHON_VERSION=${{ matrix.python-version }}"
-          } >> $GITHUB_ENV
+          } >> "$GITHUB_ENV"
 
       - name: Initialize Qdrant collection
         run: |
@@ -202,7 +202,7 @@ jobs:
           python init_qdrant.py
 
           # Verify the collection was created
-          curl -s http://localhost:6333/collections/$COLLECTION_NAME || (echo "Failed to create Qdrant collection" && exit 1)
+          curl -s "http://localhost:6333/collections/$COLLECTION_NAME" || (echo "Failed to create Qdrant collection" && exit 1)
           echo "Qdrant collection initialized successfully."
 
       - name: Create configuration file
@@ -253,12 +253,12 @@ jobs:
             CONFIG_ARG="--config ${{ github.event.inputs.config_file }}"
           fi
 
-          python -m scripts.verify_build $CONFIG_ARG --output build-verification-report.json
+          python -m scripts.verify_build "$CONFIG_ARG" --output build-verification-report.json
           VERIFY_EXIT_CODE=$?
 
           # Use new output syntax
           if [ $TEST_EXIT_CODE -ne 0 ] || [ $VERIFY_EXIT_CODE -ne 0 ]; then
-            echo "failed=true" >> $GITHUB_OUTPUT
+            echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload verification report
@@ -273,36 +273,46 @@ jobs:
         run: |
           if [ -f build-verification-report.json ]; then
             SUMMARY=$(jq -r '.build_verification_report.summary' build-verification-report.json)
-            echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+            echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
 
             STATUS=$(jq -r '.build_verification_report.verification_results.overall_status' build-verification-report.json)
-            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
-            echo "## Build Verification Report" > report.md
-            echo "### Status: $STATUS" >> report.md
-            echo "### Summary: $SUMMARY" >> report.md
-            echo "### Test Results" >> report.md
-            TOTAL=$(jq -r '.build_verification_report.test_summary.total' build-verification-report.json)
-            PASSED=$(jq -r '.build_verification_report.test_summary.passed' build-verification-report.json)
-            FAILED=$(jq -r '.build_verification_report.test_summary.failed' build-verification-report.json)
-            COVERAGE=$(jq -r '.build_verification_report.test_summary.coverage' build-verification-report.json)
-            echo "- Total Tests: $TOTAL" >> report.md
-            echo "- Passed: $PASSED" >> report.md
-            echo "- Failed: $FAILED" >> report.md
-            echo "- Coverage: $COVERAGE%" >> report.md
+            {
+              echo "## Build Verification Report"
+              echo "### Status: $STATUS"
+              echo "### Summary: $SUMMARY"
+              echo "### Test Results"
+              TOTAL=$(jq -r '.build_verification_report.test_summary.total' build-verification-report.json)
+              PASSED=$(jq -r '.build_verification_report.test_summary.passed' build-verification-report.json)
+              FAILED=$(jq -r '.build_verification_report.test_summary.failed' build-verification-report.json)
+              COVERAGE=$(jq -r '.build_verification_report.test_summary.coverage' build-verification-report.json)
+              echo "- Total Tests: $TOTAL"
+              echo "- Passed: $PASSED"
+              echo "- Failed: $FAILED"
+              echo "- Coverage: $COVERAGE%"
+            } > report.md
+            
             if jq -e '.build_verification_report.failure_analysis' build-verification-report.json > /dev/null; then
-              echo "### Failures Detected" >> report.md
-              jq -r '.build_verification_report.failure_analysis[] | "- " + .description' build-verification-report.json >> report.md
+              {
+                echo "### Failures Detected"
+                jq -r '.build_verification_report.failure_analysis[] | "- " + .description' build-verification-report.json
+              } >> report.md
             fi
+            
             if jq -e '.build_verification_report.contextual_verification' build-verification-report.json > /dev/null; then
-              echo "### Contextual Analysis" >> report.md
-              jq -r '.build_verification_report.contextual_verification[] | "#### Module: " + .module + "\n- Failure: " + .failure + "\n- Dependencies: " + (.dependencies | join(", ")) + "\n\n**Potential Causes:**\n" + (.potential_causes | map("- " + .) | join("\n")) + "\n\n**Recommended Actions:**\n" + (.recommended_actions | map("- " + .) | join("\n"))' build-verification-report.json >> report.md
+              {
+                echo "### Contextual Analysis"
+                jq -r '.build_verification_report.contextual_verification[] | "#### Module: " + .module + "\n- Failure: " + .failure + "\n- Dependencies: " + (.dependencies | join(", ")) + "\n\n**Potential Causes:**\n" + (.potential_causes | map("- " + .) | join("\n")) + "\n\n**Recommended Actions:**\n" + (.recommended_actions | map("- " + .) | join("\n"))' build-verification-report.json
+              } >> report.md
             fi
           else
-            echo "summary=Build verification failed - no report generated" >> $GITHUB_OUTPUT
-            echo "status=FAILED" >> $GITHUB_OUTPUT
-            echo "## Build Verification Failed" > report.md
-            echo "No report was generated. Check the logs for more information." >> report.md
+            {
+              echo "summary=Build verification failed - no report generated" >> "$GITHUB_OUTPUT"
+              echo "status=FAILED" >> "$GITHUB_OUTPUT"
+              echo "## Build Verification Failed"
+              echo "No report was generated. Check the logs for more information."
+            } > report.md
           fi
           cat report.md
 
