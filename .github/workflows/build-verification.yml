@@ -59,29 +59,8 @@ jobs:
       - name: Wait for Qdrant and verify connection
         run: |
           echo "Waiting for Qdrant to start..."
-          apt-get update && apt-get install -y curl jq || true
-
-          retry_count=0
-          max_retries=20
-          until [ $(curl -s -o /dev/null -w "%{http_code}" http://localhost:6333/collections) -eq 200 ] || [ $retry_count -eq $max_retries ]
-          do
-            echo "Waiting for Qdrant... (attempt $retry_count of $max_retries)"
-            sleep 5
-            retry_count=$((retry_count+1))
-          done
-
-          if [ $retry_count -eq $max_retries ]; then
-            echo "Qdrant service failed to become available after 30 seconds"
-            exit 1
-          fi
-
-          # Check for valid JSON response
-          if ! curl -s http://localhost:6333/collections | jq . > /dev/null; then
-            echo "Qdrant did not return valid JSON."
-            exit 1
-          fi
-
-          echo "Qdrant service is accessible."
+          chmod +x scripts/check_qdrant_health.sh
+          ./scripts/check_qdrant_health.sh "http://localhost:6333" 20 5
 
       - name: Setup private packages
         run: |

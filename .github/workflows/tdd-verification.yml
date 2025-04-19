@@ -1,0 +1,251 @@
+name: TDD Workflow Verification
+
+on:
+  push:
+    branches: [ dev, main ]
+  pull_request:
+    branches: [ dev, main ]
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: 'Python version to use for verification'
+        required: false
+        default: '3.11'
+
+jobs:
+  tdd-verify:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ '3.11' ]
+      fail-fast: false
+
+    name: TDD Verification with Python ${{ matrix.python-version }}
+    environment:
+      name: development
+      url: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+    services:
+      qdrant:
+        image: qdrant/qdrant:latest
+        ports:
+          - 6333:6333
+          - 6334:6334
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Wait for Qdrant and verify connection
+        run: |
+          echo "Waiting for Qdrant to start..."
+          chmod +x scripts/check_qdrant_health.sh
+          ./scripts/check_qdrant_health.sh "http://localhost:6333" 20 5
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip setuptools wheel
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+          pip install pytest-cov pytest-mock pytest-asyncio factory_boy
+
+          # Install the package in development mode
+          pip install -e .
+
+      - name: Set up environment
+        run: |
+          # Create required directories
+          mkdir -p logs knowledge cache
+
+          # Set environment variables
+          echo "QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
+          echo "MCP_QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
+          echo "COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}" >> $GITHUB_ENV
+          echo "MCP_COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}" >> $GITHUB_ENV
+          echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
+          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+
+      - name: Initialize Qdrant collection
+        run: |
+          echo "Creating Qdrant collection for testing..."
+          # Create a basic Python script to initialize the collection
+          cat > init_qdrant.py << EOF
+          import os
+          from qdrant_client import QdrantClient
+          from qdrant_client.http import models
+
+          # Connect to Qdrant
+          client = QdrantClient(url="http://localhost:6333")
+          collection_name = os.environ.get("COLLECTION_NAME", "mcp-codebase-insight-tdd-${{ github.run_id }}")
+
+          # Check if collection exists
+          collections = client.get_collections().collections
+          collection_names = [c.name for c in collections]
+
+          if collection_name in collection_names:
+              print(f"Collection {collection_name} already exists, recreating it...")
+              client.delete_collection(collection_name=collection_name)
+
+          # Create collection with vector size 384 (for all-MiniLM-L6-v2)
+          client.create_collection(
+              collection_name=collection_name,
+              vectors_config=models.VectorParams(
+                  size=384,  # Dimension for all-MiniLM-L6-v2
+                  distance=models.Distance.COSINE,
+              ),
+          )
+
+          print(f"Successfully created collection {collection_name}")
+          EOF
+
+          # Run the initialization script
+          python init_qdrant.py
+
+      - name: Run unit tests
+        run: |
+          echo "Running unit tests with coverage..."
+          python -m pytest tests/components -v --cov=src --cov-report=xml:coverage-unit.xml --cov-report=term
+
+      - name: Run integration tests
+        run: |
+          echo "Running integration tests with coverage..."
+          python -m pytest tests/integration -v --cov=src --cov-report=xml:coverage-integration.xml --cov-report=term
+
+      - name: Generate full coverage report
+        run: |
+          echo "Generating combined coverage report..."
+          python -m coverage combine coverage-*.xml
+          python -m coverage report
+          python -m coverage xml
+
+      - name: TDD Verification
+        run: |
+          echo "Performing TDD verification checks..."
+          
+          # Check if tests exist for all modules
+          python - <<EOF
+          import os
+          import sys
+          from pathlib import Path
+          
+          src_dir = Path('src/mcp_codebase_insight')
+          test_dir = Path('tests')
+          
+          # Get all Python modules in src
+          modules = [f for f in src_dir.glob('**/*.py') if '__pycache__' not in str(f)]
+          modules = [str(m.relative_to('src')).replace('.py', '').replace('/', '.') for m in modules]
+          modules = [m for m in modules if not m.endswith('__init__')]
+          
+          # Check for corresponding test files
+          missing_tests = []
+          for module in modules:
+              module_parts = module.split('.')
+              if len(module_parts) > 2:  # Skip __init__ files
+                  module_path = '/'.join(module_parts[1:])
+                  test_file = test_dir / f"test_{module_path}.py"
+                  component_test = test_dir / "components" / f"test_{module_parts[-1]}.py"
+                  
+                  if not test_file.exists() and not component_test.exists():
+                      missing_tests.append(module)
+          
+          if missing_tests:
+              print("Warning: The following modules don't have corresponding test files:")
+              for m in missing_tests:
+                  print(f" - {m}")
+          else:
+              print("All modules have corresponding test files.")
+          EOF
+          
+          # Check test coverage threshold
+          coverage_threshold=60
+          coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
+          
+          echo "Current test coverage: ${coverage_result}%"
+          echo "Required minimum coverage: ${coverage_threshold}%"
+          
+          if (( $(echo "$coverage_result < $coverage_threshold" | bc -l) )); then
+            echo "Error: Test coverage is below the required threshold of ${coverage_threshold}%"
+            exit 1
+          else
+            echo "Test coverage meets the required threshold."
+          fi
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          name: codecov-tdd
+          fail_ci_if_error: false
+
+      - name: Check test structure
+        run: |
+          echo "Validating test structure..."
+          
+          # Check for arrange-act-assert pattern in tests
+          python - <<EOF
+          import os
+          import re
+          from pathlib import Path
+          
+          test_files = list(Path('tests').glob('**/*.py'))
+          violations = []
+          
+          for test_file in test_files:
+              if test_file.name.startswith('test_') and not test_file.name.startswith('conftest'):
+                  with open(test_file, 'r') as f:
+                      content = f.read()
+                      
+                      # Check for test functions
+                      test_funcs = re.findall(r'def (test_[a-zA-Z0-9_]+)', content)
+                      
+                      for func in test_funcs:
+                          # Extract function body
+                          pattern = rf'def {func}.*?:(.*?)(?=\n\S|\Z)'
+                          matches = re.search(pattern, content, re.DOTALL)
+                          
+                          if matches:
+                              func_body = matches.group(1)
+                              
+                              # Simple heuristic for arrange-act-assert
+                              if not (
+                                  # Look for arranging variables and mocks
+                                  re.search(r'= [^=]+', func_body) and
+                                  # Look for function calls (actions)
+                                  re.search(r'\w+\([^)]*\)', func_body) and
+                                  # Look for assertions
+                                  ('assert' in func_body)
+                              ):
+                                  violations.append(f"{test_file}::{func}")
+          
+          if violations:
+              print("Warning: The following tests might not follow the arrange-act-assert pattern:")
+              for v in violations[:10]:  # Show first 10 violations
+                  print(f" - {v}")
+              if len(violations) > 10:
+                  print(f"  ... and {len(violations) - 10} more")
+          else:
+              print("All tests appear to follow the arrange-act-assert pattern.")
+          EOF
+
+      - name: TDD Workflow Summary
+        run: |
+          echo "## TDD Workflow Summary" >> $GITHUB_STEP_SUMMARY
+          echo "✅ TDD verification completed" >> $GITHUB_STEP_SUMMARY
+          
+          # Add coverage information
+          coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}')
+          echo "- Test coverage: ${coverage_result}" >> $GITHUB_STEP_SUMMARY
+          
+          # Add test counts
+          unit_tests=$(python -m pytest tests/components --collect-only -q | wc -l)
+          integration_tests=$(python -m pytest tests/integration --collect-only -q | wc -l)
+          echo "- Unit tests: ${unit_tests}" >> $GITHUB_STEP_SUMMARY
+          echo "- Integration tests: ${integration_tests}" >> $GITHUB_STEP_SUMMARY 
