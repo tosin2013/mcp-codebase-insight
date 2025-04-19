@@ -27,7 +27,7 @@ jobs:
 
     services:
       qdrant:
-        image: qdrant/qdrant:latest
+        image: qdrant/qdrant:1.3.0
         ports:
           - 6333:6333
           - 6334:6334
@@ -39,7 +39,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v4.7.1
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -52,26 +52,24 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip setuptools wheel
-          pip install -r requirements.txt
-          pip install -r requirements-dev.txt
-          pip install pytest-cov pytest-mock pytest-asyncio factory_boy
-
-          # Install the package in development mode
-          pip install -e .
+          python -m pip install --upgrade pip setuptools wheel \
+            && pip install -r requirements.txt -r requirements-dev.txt \
+            && pip install pytest-cov pytest-mock pytest-asyncio factory_boy \
+            && pip install -e .
 
       - name: Set up environment
         run: |
           # Create required directories
           mkdir -p logs knowledge cache
 
-          # Set environment variables
-          echo "QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
-          echo "MCP_QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
-          echo "COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}" >> $GITHUB_ENV
-          echo "MCP_COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}" >> $GITHUB_ENV
-          echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          {
+            echo "QDRANT_URL=http://localhost:6333"
+            echo "MCP_QDRANT_URL=http://localhost:6333"
+            echo "COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}"
+            echo "MCP_COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}"
+            echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2"
+            echo "PYTHON_VERSION=${{ matrix.python-version }}"
+          } >> $GITHUB_ENV
 
       - name: Initialize Qdrant collection
         run: |
@@ -129,21 +127,21 @@ jobs:
       - name: TDD Verification
         run: |
           echo "Performing TDD verification checks..."
-          
+
           # Check if tests exist for all modules
           python - <<EOF
           import os
           import sys
           from pathlib import Path
-          
+
           src_dir = Path('src/mcp_codebase_insight')
           test_dir = Path('tests')
-          
+
           # Get all Python modules in src
           modules = [f for f in src_dir.glob('**/*.py') if '__pycache__' not in str(f)]
           modules = [str(m.relative_to('src')).replace('.py', '').replace('/', '.') for m in modules]
           modules = [m for m in modules if not m.endswith('__init__')]
-          
+
           # Check for corresponding test files
           missing_tests = []
           for module in modules:
@@ -152,10 +150,10 @@ jobs:
                   module_path = '/'.join(module_parts[1:])
                   test_file = test_dir / f"test_{module_path}.py"
                   component_test = test_dir / "components" / f"test_{module_parts[-1]}.py"
-                  
+
                   if not test_file.exists() and not component_test.exists():
                       missing_tests.append(module)
-          
+
           if missing_tests:
               print("Warning: The following modules don't have corresponding test files:")
               for m in missing_tests:
@@ -163,14 +161,14 @@ jobs:
           else:
               print("All modules have corresponding test files.")
           EOF
-          
+
           # Check test coverage threshold
           coverage_threshold=60
           coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}' | sed 's/%//')
-          
+
           echo "Current test coverage: ${coverage_result}%"
           echo "Required minimum coverage: ${coverage_threshold}%"
-          
+
           if (( $(echo "$coverage_result < $coverage_threshold" | bc -l) )); then
             echo "Error: Test coverage is below the required threshold of ${coverage_threshold}%"
             exit 1
@@ -179,7 +177,7 @@ jobs:
           fi
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v3.2.1
         with:
           file: ./coverage.xml
           name: codecov-tdd
@@ -188,32 +186,32 @@ jobs:
       - name: Check test structure
         run: |
           echo "Validating test structure..."
-          
+
           # Check for arrange-act-assert pattern in tests
           python - <<EOF
           import os
           import re
           from pathlib import Path
-          
+
           test_files = list(Path('tests').glob('**/*.py'))
           violations = []
-          
+
           for test_file in test_files:
               if test_file.name.startswith('test_') and not test_file.name.startswith('conftest'):
                   with open(test_file, 'r') as f:
                       content = f.read()
-                      
+
                       # Check for test functions
                       test_funcs = re.findall(r'def (test_[a-zA-Z0-9_]+)', content)
-                      
+
                       for func in test_funcs:
                           # Extract function body
                           pattern = rf'def {func}.*?:(.*?)(?=\n\S|\Z)'
                           matches = re.search(pattern, content, re.DOTALL)
-                          
+
                           if matches:
                               func_body = matches.group(1)
-                              
+
                               # Simple heuristic for arrange-act-assert
                               if not (
                                   # Look for arranging variables and mocks
@@ -224,7 +222,7 @@ jobs:
                                   ('assert' in func_body)
                               ):
                                   violations.append(f"{test_file}::{func}")
-          
+
           if violations:
               print("Warning: The following tests might not follow the arrange-act-assert pattern:")
               for v in violations[:10]:  # Show first 10 violations
@@ -239,13 +237,13 @@ jobs:
         run: |
           echo "## TDD Workflow Summary" >> $GITHUB_STEP_SUMMARY
           echo "✅ TDD verification completed" >> $GITHUB_STEP_SUMMARY
-          
+
           # Add coverage information
           coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}')
           echo "- Test coverage: ${coverage_result}" >> $GITHUB_STEP_SUMMARY
-          
+
           # Add test counts
           unit_tests=$(python -m pytest tests/components --collect-only -q | wc -l)
           integration_tests=$(python -m pytest tests/integration --collect-only -q | wc -l)
           echo "- Unit tests: ${unit_tests}" >> $GITHUB_STEP_SUMMARY
-          echo "- Integration tests: ${integration_tests}" >> $GITHUB_STEP_SUMMARY 
+          echo "- Integration tests: ${integration_tests}" >> $GITHUB_STEP_SUMMARY

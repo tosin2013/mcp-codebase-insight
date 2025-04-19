@@ -39,7 +39,7 @@ jobs:
 
     services:
       qdrant:
-        image: qdrant/qdrant:latest
+        image: qdrant/qdrant:1.3.0
         ports:
           - 6333:6333
           - 6334:6334
@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 0  # Fetch all history for dependencies analysis
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v4.7.1
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -151,18 +151,19 @@ jobs:
           # Create required directories
           mkdir -p logs knowledge cache
 
-          # Set environment variables
-          echo "QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
-          echo "MCP_QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
-          echo "COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "MCP_COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
-          echo "BUILD_COMMAND=make build" >> $GITHUB_ENV
-          echo "TEST_COMMAND=make test" >> $GITHUB_ENV
-          echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '40.0' }}" >> $GITHUB_ENV
-          echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}" >> $GITHUB_ENV
-          echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server" >> $GITHUB_ENV
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          {
+            echo "QDRANT_URL=http://localhost:6333"
+            echo "MCP_QDRANT_URL=http://localhost:6333"
+            echo "COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}"
+            echo "MCP_COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}"
+            echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2"
+            echo "BUILD_COMMAND=make build"
+            echo "TEST_COMMAND=make test"
+            echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '40.0' }}"
+            echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}"
+            echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server"
+            echo "PYTHON_VERSION=${{ matrix.python-version }}"
+          } >> $GITHUB_ENV
 
       - name: Initialize Qdrant collection
         run: |

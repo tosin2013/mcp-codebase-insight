@@ -29,14 +29,14 @@ This PR aims to improve the GitHub Actions workflows in our repository by:
 
 @coderabbit, I'm particularly interested in your feedback on:
 
-1. The overall structure and organization of the workflows
+1. Workflow structure and organization
 2. Any redundancies or inefficiencies you notice
-3. Best practices we might be missing
+3. Any missing best practices
 4. Suggestions for further improvements
 
 ## Future Improvements
 
-We're planning to implement more improvements based on your feedback:
+We're planning to implement additional enhancements based on your feedback:
 
 - Extract more common functionality into reusable actions
 - Standardize environment variables across workflows

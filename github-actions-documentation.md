@@ -89,7 +89,7 @@ The repository contains three GitHub Actions workflows:
 ### Key Steps
 1. **Checkout code** - Fetches the repository code
 2. **Set up Python** - Configures Python 3.11
-3. **Wait for Qdrant** - Ensures the Qdrant service is available
+3. **Wait for Qdrant** - To ensure the Qdrant service is available
 4. **Install dependencies** - Installs project and testing requirements
 5. **Set up environment** - Configures environment variables and directories
 6. **Initialize Qdrant collection** - Creates a vector database collection for testing

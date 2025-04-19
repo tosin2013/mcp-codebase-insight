@@ -23,6 +23,8 @@ This directory contains utility scripts for the MCP Codebase Insight project.
 ./check_qdrant_health.sh "http://localhost:6333" 30 2
 ```
 
+> Note: This script uses `apt-get` and may require `sudo` privileges on Linux systems. Ensure `curl` and `jq` are pre-installed or run with proper permissions.
+
 **Exit Codes**:
 - 0: Qdrant service is accessible and healthy
 - 1: Qdrant service is not accessible or not healthy
@@ -31,13 +33,33 @@ This directory contains utility scripts for the MCP Codebase Insight project.
 
 **Purpose**: Compiles and generates version-specific requirements files for different Python versions.
 
+**Usage**:
+```bash
+./compile_requirements.sh <python-version>
+```
+
+**Example**:
+```bash
+./compile_requirements.sh 3.11
+```
+
 ### load_example_patterns.py
 
 **Purpose**: Loads example patterns and ADRs into the knowledge base for demonstration or testing.
 
+**Usage**:
+```bash
+python load_example_patterns.py [--help]
+```
+
 ### verify_build.py
 
 **Purpose**: Verifies the build status and generates a build verification report.
+
+**Usage**:
+```bash
+python verify_build.py [--config <file>] [--output <report-file>]
+```
 
 ## Usage in GitHub Actions
 
