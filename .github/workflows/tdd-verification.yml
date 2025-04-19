@@ -69,13 +69,12 @@ jobs:
             echo "MCP_COLLECTION_NAME=mcp-codebase-insight-tdd-${{ github.run_id }}"
             echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2"
             echo "PYTHON_VERSION=${{ matrix.python-version }}"
-          } >> $GITHUB_ENV
+          } >> "$GITHUB_ENV"
 
       - name: Initialize Qdrant collection
         run: |
           echo "Creating Qdrant collection for testing..."
-          # Create a basic Python script to initialize the collection
-          cat > init_qdrant.py << 'EOF'
+          python - <<'EOF'
           import os
           from qdrant_client import QdrantClient
           from qdrant_client.http import models
@@ -104,9 +103,6 @@ jobs:
           print(f"Successfully created collection {collection_name}")
           EOF
 
-          # Run the initialization script
-          python init_qdrant.py
-
       - name: Run unit tests
         run: |
           echo "Running unit tests with coverage..."
@@ -129,25 +125,25 @@ jobs:
           echo "Performing TDD verification checks..."
           
           # Check if tests exist for all modules
-          cat > check_tests.py << 'EOF'
+          python - <<'EOF'
           import os
           import sys
           from pathlib import Path
 
-          src_dir = Path('src/mcp_codebase_insight')
-          test_dir = Path('tests')
+          src_dir = Path("src/mcp_codebase_insight")
+          test_dir = Path("tests")
 
           # Get all Python modules in src
-          modules = [f for f in src_dir.glob('**/*.py') if '__pycache__' not in str(f)]
-          modules = [str(m.relative_to('src')).replace('.py', '').replace('/', '.') for m in modules]
-          modules = [m for m in modules if not m.endswith('__init__')]
+          modules = [f for f in src_dir.glob("**/*.py") if "__pycache__" not in str(f)]
+          modules = [str(m.relative_to("src")).replace(".py", "").replace("/", ".") for m in modules]
+          modules = [m for m in modules if not m.endswith("__init__")]
 
           # Check for corresponding test files
           missing_tests = []
           for module in modules:
-              module_parts = module.split('.')
+              module_parts = module.split(".")
               if len(module_parts) > 2:  # Skip __init__ files
-                  module_path = '/'.join(module_parts[1:])
+                  module_path = "/".join(module_parts[1:])
                   test_file = test_dir / f"test_{module_path}.py"
                   component_test = test_dir / "components" / f"test_{module_parts[-1]}.py"
                   
@@ -161,7 +157,6 @@ jobs:
           else:
               print("All modules have corresponding test files.")
           EOF
-          python check_tests.py
           
           # Check test coverage threshold
           coverage_threshold=60
@@ -189,25 +184,25 @@ jobs:
           echo "Validating test structure..."
           
           # Check for arrange-act-assert pattern in tests
-          cat > check_test_structure.py << 'EOF'
+          python - <<'EOF'
           import os
           import re
           from pathlib import Path
 
-          test_files = list(Path('tests').glob('**/*.py'))
+          test_files = list(Path("tests").glob("**/*.py"))
           violations = []
 
           for test_file in test_files:
-              if test_file.name.startswith('test_') and not test_file.name.startswith('conftest'):
-                  with open(test_file, 'r') as f:
+              if test_file.name.startswith("test_") and not test_file.name.startswith("conftest"):
+                  with open(test_file, "r") as f:
                       content = f.read()
                       
                       # Check for test functions
-                      test_funcs = re.findall(r'def (test_[a-zA-Z0-9_]+)', content)
+                      test_funcs = re.findall(r"def (test_[a-zA-Z0-9_]+)", content)
                       
                       for func in test_funcs:
                           # Extract function body
-                          pattern = rf'def {func}.*?:(.*?)(?=\n\S|\Z)'
+                          pattern = rf"def {func}.*?:(.*?)(?=\n\S|\Z)"
                           matches = re.search(pattern, content, re.DOTALL)
                           
                           if matches:
@@ -216,11 +211,11 @@ jobs:
                               # Simple heuristic for arrange-act-assert
                               if not (
                                   # Look for arranging variables and mocks
-                                  re.search(r'= [^=]+', func_body) and
+                                  re.search(r"= [^=]+", func_body) and
                                   # Look for function calls (actions)
-                                  re.search(r'\w+\([^)]*\)', func_body) and
+                                  re.search(r"\w+\([^)]*\)", func_body) and
                                   # Look for assertions
-                                  ('assert' in func_body)
+                                  ("assert" in func_body)
                               ):
                                   violations.append(f"{test_file}::{func}")
 
@@ -233,16 +228,15 @@ jobs:
           else:
               print("All tests appear to follow the arrange-act-assert pattern.")
           EOF
-          python check_test_structure.py
 
       - name: TDD Workflow Summary
         run: |
-          echo "## TDD Workflow Summary" >> $GITHUB_STEP_SUMMARY
-          echo "✅ TDD verification completed" >> $GITHUB_STEP_SUMMARY
+          echo "## TDD Workflow Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ TDD verification completed" >> "$GITHUB_STEP_SUMMARY"
           
           # Add coverage information
           coverage_result=$(python -m coverage report | grep TOTAL | awk '{print $4}')
-          echo "- Test coverage: ${coverage_result}" >> $GITHUB_STEP_SUMMARY
+          echo "- Test coverage: ${coverage_result}" >> "$GITHUB_STEP_SUMMARY"
           
           # Add test counts
           unit_tests=$(python -m pytest tests/components --collect-only -q | wc -l)
