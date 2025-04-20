@@ -282,7 +282,7 @@ class VectorStore:
             search_filter = rest.Filter(**filter_conditions)
         
         # Search in Qdrant
-        results = self.client.search(
+        results = self.client.query_points(
             collection_name=self.collection_name,
             query_vector=vector,
             query_filter=search_filter,

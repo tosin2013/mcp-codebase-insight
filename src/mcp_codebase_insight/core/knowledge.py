@@ -403,7 +403,7 @@ class KnowledgeBase:
         pattern_dir.mkdir(parents=True, exist_ok=True)
         pattern_path = pattern_dir / f"{pattern.id}.json"
         with open(pattern_path, "w") as f:
-            json.dump(pattern.dict(), f, indent=2, default=str)
+            json.dump(pattern.model_dump(), f, indent=2, default=str)
 
     async def search_patterns(
         self,

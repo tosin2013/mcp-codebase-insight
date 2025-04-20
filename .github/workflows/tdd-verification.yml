@@ -106,12 +106,12 @@ jobs:
       - name: Run unit tests
         run: |
           echo "Running unit tests with coverage..."
-          python -m pytest tests/components -v --cov=src --cov-report=xml:coverage-unit.xml --cov-report=term
+          python -m pytest tests/components -v -p pytest_asyncio --cov=src --cov-report=xml:coverage-unit.xml --cov-report=term
 
       - name: Run integration tests
         run: |
           echo "Running integration tests with coverage..."
-          python -m pytest tests/integration -v --cov=src --cov-report=xml:coverage-integration.xml --cov-report=term
+          python -m pytest tests/integration -v -p pytest_asyncio --cov=src --cov-report=xml:coverage-integration.xml --cov-report=term
 
       - name: Generate full coverage report
         run: |
