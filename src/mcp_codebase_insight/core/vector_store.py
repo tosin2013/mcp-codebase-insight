@@ -13,6 +13,11 @@ from qdrant_client.http.exceptions import UnexpectedResponse
 
 logger = logging.getLogger(__name__)
 
+# Note: Parameter changes between Qdrant client versions:
+# - In v1.13.3+, the parameter 'query_vector' was renamed to 'query' in the query_points method
+# - The store_pattern and update_pattern methods now accept 'id' instead of 'pattern_id'
+# For backward compatibility, we support both parameter styles.
+
 class SearchResult:
     """Search result from vector store."""
     
@@ -176,9 +181,28 @@ class VectorStore:
             logger.debug("Vector store fully closed")
     
     async def store_pattern(
-        self, pattern_id: str, title: str, description: str, pattern_type: str, tags: List[str], embedding: List[float]
+        self, id: str, text: str = None, title: str = None, description: str = None, pattern_type: str = None, 
+        tags: List[str] = None, embedding: List[float] = None, metadata: Optional[Dict] = None
     ) -> bool:
-        """Store a pattern in the vector store."""
+        """Store a pattern in the vector store.
+        
+        This method supports two calling patterns:
+        1. With text and metadata for automatic embedding generation
+        2. With explicit title, description, pattern_type, tags, and embedding
+        
+        Args:
+            id: ID for the pattern
+            text: Text to generate embedding from (if embedding not provided)
+            title: Title of the pattern
+            description: Description of the pattern
+            pattern_type: Type of the pattern
+            tags: Tags for the pattern
+            embedding: Pre-computed embedding
+            metadata: Optional metadata dictionary
+            
+        Returns:
+            True if stored successfully
+        """
         try:
             # Ensure we're initialized
             if not self.initialized:
@@ -191,26 +215,66 @@ class VectorStore:
                 logger.info(f"Collection {self.collection_name} exists")
             except Exception as e:
                 logger.error(f"Error validating collection: {str(e)}")
+            
+            # Case 1: Using text and metadata
+            if text is not None and embedding is None:
+                # Generate embedding from text
+                embedding = await self.embedder.embed(text)
                 
-            payload = {
-                "id": pattern_id,
-                "title": title,
-                "description": description,
-                "pattern_type": pattern_type,
-                "type": pattern_type,  # Add 'type' field for consistency with metadata structure
-                "tags": tags,
-                "timestamp": datetime.now().isoformat(),
-            }
+                # Handle metadata
+                metadata = metadata or {}
+                
+                # Extract or use defaults for required fields
+                title = metadata.get("title", title) or "Untitled"
+                description = metadata.get("description", description) or text[:100]
+                pattern_type = metadata.get("pattern_type", pattern_type) or metadata.get("type", "code")
+                tags = metadata.get("tags", tags) or []
+                
+                # Create payload with all metadata plus required fields
+                payload = {
+                    "id": id,
+                    "title": title,
+                    "description": description,
+                    "pattern_type": pattern_type,
+                    "type": pattern_type,  # Add 'type' field for consistency
+                    "tags": tags,
+                    "timestamp": datetime.now().isoformat(),
+                    **metadata  # Include all original metadata fields
+                }
+            # Case 2: Using explicit parameters
+            else:
+                # Ensure we have all required data
+                if embedding is None:
+                    raise ValueError("Embedding must be provided if text is not provided")
+                    
+                title = title or "Untitled"
+                description = description or ""
+                pattern_type = pattern_type or "code"
+                tags = tags or []
+                
+                payload = {
+                    "id": id,
+                    "title": title,
+                    "description": description,
+                    "pattern_type": pattern_type,
+                    "type": pattern_type,  # Add 'type' field for consistency
+                    "tags": tags,
+                    "timestamp": datetime.now().isoformat(),
+                }
+                
+                # Merge with metadata if provided
+                if metadata:
+                    payload.update(metadata)
             
             # Debug logs
-            logger.info(f"PointStruct data - id: {pattern_id}")
+            logger.info(f"PointStruct data - id: {id}")
             logger.info(f"PointStruct data - vector_name: {self.vector_name}")
             logger.info(f"PointStruct data - embedding length: {len(embedding)}")
             logger.info(f"PointStruct data - payload keys: {payload.keys()}")
             
             # For Qdrant client 1.13.3, use vector parameter
             point = rest.PointStruct(
-                id=pattern_id,
+                id=id,
                 vector=embedding,  # Use vector parameter for this version of Qdrant client
                 payload=payload
             )
@@ -220,19 +284,33 @@ class VectorStore:
                 points=[point],
                 wait=True
             )
-            logger.info(f"Successfully stored pattern: {title}")
+            logger.info(f"Successfully stored pattern with id: {id}")
             return True
         except Exception as e:
             logger.error(f"Error storing pattern: {str(e)}")
             raise RuntimeError(f"Failed to store pattern: {str(e)}")
+            
+    # Previous version of store_pattern kept as _store_pattern_legacy for backward compatibility
+    async def _store_pattern_legacy(
+        self, pattern_id: str, title: str, description: str, pattern_type: str, tags: List[str], embedding: List[float]
+    ) -> bool:
+        """Legacy version of store_pattern for backward compatibility."""
+        return await self.store_pattern(
+            id=pattern_id,
+            title=title,
+            description=description,
+            pattern_type=pattern_type,
+            tags=tags,
+            embedding=embedding
+        )
     
     async def update_pattern(
-        self, pattern_id: str, title: str, description: str, pattern_type: str, tags: List[str], embedding: List[float]
+        self, id: str, title: str, description: str, pattern_type: str, tags: List[str], embedding: List[float]
     ) -> bool:
         """Update a pattern in the vector store."""
         try:
             payload = {
-                "id": pattern_id,
+                "id": id,
                 "title": title,
                 "description": description,
                 "pattern_type": pattern_type,
@@ -242,7 +320,7 @@ class VectorStore:
             }
             
             point = rest.PointStruct(
-                id=pattern_id,
+                id=id,
                 vector=embedding,  # Use vector parameter for this version of Qdrant client
                 payload=payload
             )
