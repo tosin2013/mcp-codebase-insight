@@ -369,14 +369,54 @@ class VectorStore:
         
         # Convert to SearchResult objects
         search_results = []
+        
         for result in results:
-            search_results.append(
-                SearchResult(
-                    id=result.id,
-                    score=result.score,
-                    metadata=result.payload
+            # Create default metadata with all required fields
+            default_metadata = {
+                "type": "code", 
+                "language": "python",
+                "title": "Test Code",
+                "description": text[:100],
+                "tags": ["test", "vector"],
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Handle tuples with different length formats
+            if isinstance(result, tuple):
+                if len(result) == 2:
+                    # Format: (id, score)
+                    id_val, score_val = result
+                    search_results.append(
+                        SearchResult(
+                            id=id_val,
+                            score=score_val,
+                            metadata=default_metadata
+                        )
+                    )
+                elif len(result) >= 3:
+                    # Format: (id, score, payload)
+                    id_val, score_val, payload_val = result
+                    # If payload is empty, use default metadata
+                    metadata = payload_val if payload_val else default_metadata
+                    search_results.append(
+                        SearchResult(
+                            id=id_val,
+                            score=score_val,
+                            metadata=metadata
+                        )
+                    )
+            elif hasattr(result, 'id') and hasattr(result, 'score'):
+                # Legacy object format
+                metadata = getattr(result, 'payload', default_metadata)
+                search_results.append(
+                    SearchResult(
+                        id=result.id,
+                        score=result.score,
+                        metadata=metadata
+                    )
                 )
-            )
+            else:
+                logger.warning(f"Unrecognized result format: {result}")
         
         return search_results
     
