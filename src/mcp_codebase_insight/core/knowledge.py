@@ -211,7 +211,7 @@ class KnowledgeBase:
             try:
                 embedding = await self.vector_store.embedder.embed(combined_text)
                 await self.vector_store.store_pattern(
-                    pattern_id=str(pattern.id),
+                    id=str(pattern.id),
                     title=pattern.name,
                     description=pattern.description,
                     pattern_type=pattern.type.value,
@@ -275,7 +275,7 @@ class KnowledgeBase:
             try:
                 embedding = await self.vector_store.embedder.embed(combined_text)
                 await self.vector_store.update_pattern(
-                    pattern_id=str(pattern.id),
+                    id=str(pattern.id),
                     title=pattern.name,
                     description=pattern.description,
                     pattern_type=pattern.type.value,

@@ -25,15 +25,16 @@ class MockStdoutWriter:
         return self.output.getvalue()
 
 @pytest.fixture
-def mock_stdio():
+async def mock_stdio():
     input_data = '{"type": "register", "tool_id": "test_tool"}\n'
     reader = MockStdinReader(input_data)
     writer = MockStdoutWriter()
     return reader, writer
 
+@pytest.mark.asyncio
 async def test_stdio_registration(mock_stdio):
     """Test tool registration via stdio."""
-    reader, writer = mock_stdio
+    reader, writer = await mock_stdio
 
     # Process registration message
     line = await reader.readline()
@@ -54,6 +55,7 @@ async def test_stdio_registration(mock_stdio):
     assert "registration_success" in writer.get_output()
     assert message["tool_id"] in writer.get_output()
 
+@pytest.mark.asyncio
 async def test_stdio_message_streaming():
     """Test streaming messages via stdio."""
     # Set up mock streams with multiple messages
@@ -78,6 +80,7 @@ async def test_stdio_message_streaming():
     assert len(messages_received) == len(input_messages)
     assert all(msg["type"] == "request" for msg in messages_received)
 
+@pytest.mark.asyncio
 async def test_stdio_error_handling():
     """Test error handling in stdio communication."""
     # Test invalid JSON
@@ -97,6 +100,7 @@ async def test_stdio_error_handling():
     assert "error" in writer.get_output()
     assert "Invalid JSON format" in writer.get_output()
 
+@pytest.mark.asyncio
 async def test_stdio_message_ordering():
     """Test message ordering and response correlation."""
     # Set up messages with sequence numbers
@@ -133,6 +137,7 @@ async def test_stdio_message_ordering():
     responses = [json.loads(line) for line in output.strip().split("\n")]
     assert all(resp["sequence"] == idx + 1 for idx, resp in enumerate(responses))
 
+@pytest.mark.asyncio
 async def test_stdio_large_message():
     """Test handling of large messages via stdio."""
     # Create a large message
@@ -167,6 +172,7 @@ async def test_stdio_large_message():
     response_message = json.loads(output)
     assert len(response_message["data"]) == len(large_data)
 
+@pytest.mark.asyncio
 async def test_stdio_buffer_overflow_handling():
     """Test handling of buffer overflow in stdio communication."""
     very_large_data = "x" * (10 * 1024 * 1024)
@@ -195,6 +201,7 @@ async def test_stdio_buffer_overflow_handling():
     except MemoryError:
         pytest.fail("Memory error when processing large message")
 
+@pytest.mark.asyncio
 async def test_stdio_component_unavailability():
     """Test stdio behavior when a required component is unavailable."""
     reader = MockStdinReader('{"type": "request", "id": "test", "method": "unavailable_component", "params": {}}\n')
@@ -221,6 +228,7 @@ async def test_stdio_component_unavailability():
     assert "Component unavailable" in output
     assert "COMPONENT_UNAVAILABLE" in output
 
+@pytest.mark.asyncio
 async def test_stdio_protocol_version_check():
     """Test handling of protocol version mismatches in stdio communication."""
     reader = MockStdinReader('{"type": "init", "protocol_version": "1.0", "client_id": "test_client"}\n')
