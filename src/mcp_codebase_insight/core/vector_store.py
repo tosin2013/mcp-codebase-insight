@@ -284,7 +284,7 @@ class VectorStore:
         # Search in Qdrant
         results = self.client.query_points(
             collection_name=self.collection_name,
-            query_vector=vector,
+            query=vector,
             query_filter=search_filter,
             limit=limit
         )
