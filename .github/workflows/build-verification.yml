@@ -243,7 +243,7 @@ jobs:
             tests/integration/test_api_endpoints.py::test_error_handling \
             tests/integration/test_communication_integration.py::test_sse_stdio_interaction \
             tests/test_file_relationships.py \
-            -v --cov=src/mcp_codebase_insight --cov-report=xml:coverage.xml --cov-report=html:htmlcov
+            -v -p pytest_asyncio --cov=src/mcp_codebase_insight --cov-report=xml:coverage.xml --cov-report=html:htmlcov
 
           TEST_EXIT_CODE=$?
 
