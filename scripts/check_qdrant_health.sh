@@ -34,7 +34,7 @@ retry_count=0
 until [ "$(curl -s -o /dev/null -w "%{http_code}" "$QDRANT_URL/collections")" -eq 200 ] || [ "$retry_count" -eq "$MAX_RETRIES" ]
 do
     echo "Waiting for Qdrant... (attempt $retry_count of $MAX_RETRIES)"
-    sleep $SLEEP_SECONDS
+    sleep "$SLEEP_SECONDS"
     retry_count=$((retry_count+1))
 done
 
