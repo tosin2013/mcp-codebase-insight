@@ -34,6 +34,7 @@ from .core.cache import CacheManager
 from .core.vector_store import VectorStore, SearchResult
 from .core.embeddings import SentenceTransformerEmbedding
 from .core.sse import MCP_CodebaseInsightServer  # Import the MCP server implementation
+from .core.component_status import ComponentStatus  # Import ComponentStatus enum
 from .core.errors import (
     InvalidRequestError,
     ResourceNotFoundError,
@@ -216,9 +217,26 @@ def create_app(config: ServerConfig) -> FastAPI:
             # Get vector store from components
             vector_store = state.get_component("vector_store")
             if not vector_store:
+                logger.warning("Vector store component not available")
                 raise HTTPException(
                     status_code=503,
-                    detail={"message": "Vector store component not available"}
+                    detail={"message": "Vector store component not available", "error": "Vector store not initialized"}
+                )
+            
+            # Check if vector store is initialized
+            if not getattr(vector_store, "initialized", False):
+                logger.warning("Vector store not initialized")
+                raise HTTPException(
+                    status_code=503,
+                    detail={"message": "Vector store not initialized", "error": "Please initialize the vector store before using it"}
+                )
+                
+            # Check if vector store client is connected
+            if not getattr(vector_store, "client", None):
+                logger.warning("Vector store client not connected")
+                raise HTTPException(
+                    status_code=503,
+                    detail={"message": "Vector store client not connected", "error": "Database connection issue"}
                 )
             
             # Prepare filters if provided
@@ -259,7 +277,7 @@ def create_app(config: ServerConfig) -> FastAPI:
                     "timestamp": result.metadata.get("timestamp", "")
                 }
                 for result in results
-                if result.score >= threshold
+                if isinstance(result.score, (int, float)) and result.score >= threshold
             ]
             
             return {
@@ -1692,6 +1710,18 @@ def run():
         log_level=args.log_level.lower(),
         reload=args.debug
     )
+
+def get_application():
+    """Get the FastAPI application instance.
+    
+    This function is used by modern deployment tools like Uvicorn when run directly.
+    """
+    config = ServerConfig.from_env()
+    server = CodebaseAnalysisServer(config)
+    return server.app
+
+# Create app with default config for direct import in uvicorn
+app = get_application()
 
 if __name__ == "__main__":
     run()
