@@ -203,8 +203,8 @@ def create_app(config: ServerConfig) -> FastAPI:
     @app.get("/api/vector-store/search")
     async def vector_store_search(
         query: str = Query(..., description="Text to search for similar code"),
-        limit: int = Query(5, description="Maximum number of results to return"),
-        threshold: float = Query(float(os.getenv("MCP_SEARCH_THRESHOLD", "0.7")), description="Minimum similarity score threshold"),
+        limit: int = Query(5, description="Maximum number of results to return", ge=1, le=100),
+        threshold: float = Query(float(os.getenv("MCP_SEARCH_THRESHOLD", "0.7")), description="Minimum similarity score threshold (0.0 to 1.0)", ge=0.0, le=1.0),
         file_type: Optional[str] = Query(None, description="Filter by file type"),
         path_pattern: Optional[str] = Query(None, description="Filter by path pattern"),
         state: ServerState = Depends(verify_initialized)
