@@ -6,17 +6,17 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 
-[build]
-backend = "setuptools.build_meta"
+[build-system]
 requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [dependencies]
 # Core dependencies are managed in pyproject.toml
 
 [scripts]
-start = "python -m src.mcp_codebase_insight.server"
-dev = "python -m src.mcp_codebase_insight.server --debug"
-server = "python -m src.mcp_codebase_insight.server --port 3000"
+start = "python -m mcp_codebase_insight.server"
+dev = "python -m mcp_codebase_insight.server --debug"
+server = "python -m mcp_codebase_insight.server --port 3000"
 test = "pytest tests"
 test-all = "pytest tests/ --cov=src --cov-report=term-missing"
 lint = "black src tests && isort src tests && flake8 src tests"

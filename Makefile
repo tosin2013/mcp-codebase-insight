@@ -73,8 +73,8 @@ build: clean
 # Build package using UVX
 build-uvx: clean
 	python -m pip install --upgrade "uvx<2.0"
-	pip install build
-	python -m build
+	uvx runpip install build
+	uvx run python -m build
 
 # Run server with Python
 run:
@@ -82,8 +82,8 @@ run:
 
 # Run server with UVX
 run-uvx:
-	pip install "uvx<2.0"
-	python -m mcp_codebase_insight.server --debug --port 3000
+	python -m pip install --upgrade "uvx<2.0"
+	uvx run python -m mcp_codebase_insight.server --debug --port 3000
 
 # Run server with Docker
 run-docker:
@@ -106,8 +106,8 @@ docker-run:
 # Install dependencies using UVX
 install-uvx:
 	python -m pip install --upgrade pip
-	pip install "uvx<2.0"
-	pip install -e .
+	python -m pip install --upgrade "uvx<2.0"
+	uvx install .
 
 # Install dependencies using UVX v2
 install-uvx-v2:
@@ -156,9 +156,9 @@ bump-major:
 
 # Run server with UVX v2
 run-uvx-v2:
-	python -m pip install uvx
+	python -m pip install --upgrade uvx
 	uvx install -e .
-	python -m uvicorn mcp_codebase_insight.server:app --host 127.0.0.1 --port 3000 --reload
+	uvx run uvicorn mcp_codebase_insight.server:app --host 127.0.0.1 --port 3000 --reload
 
 # Run server with UVX (auto-detects version)
 run-uvx-auto:
@@ -175,4 +175,4 @@ run-uvx-auto:
 
 # Run server directly using Python module
 run-direct:
-	python -m src.mcp_codebase_insight.server --debug --port 3000
+	python -m mcp_codebase_insight.server --debug --port 3000

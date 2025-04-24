@@ -328,34 +328,38 @@ class KnowledgeBase:
         search_results = []
         for result in results:
             try:
-                # Handle different ID formats from Qdrant client
+                # Handle different result formats
                 pattern_id = None
-                if hasattr(result, 'id'):
-                    # Try to convert the ID to UUID, handling different formats
+                score = 0.0
+                
+                # Check if result is a SearchResult object
+                if hasattr(result, 'id') and hasattr(result, 'score'):
                     id_str = str(result.id)
-                    # Check if it's a valid UUID format
-                    if '-' in id_str and len(id_str.replace('-', '')) == 32:
+                    score = result.score
+                    
+                    # Check for typical Qdrant response
+                    if hasattr(result, 'metadata') and isinstance(result.metadata, dict) and 'id' in result.metadata:
+                        pattern_id = UUID(result.metadata['id'])
+                    # Try to parse the ID directly
+                    elif '-' in id_str and len(id_str.replace('-', '')) == 32:
                         pattern_id = UUID(id_str)
-                    else:
-                        # Try to extract a UUID from the ID
-                        # Look for UUID patterns like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-                        import re
-                        uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
-                        if uuid_match:
-                            pattern_id = UUID(uuid_match.group(1))
-                else:
-                    # Handle tuple results from newer Qdrant client
-                    # Tuple format is typically (id, score, payload)
-                    if isinstance(result, tuple) and len(result) >= 1:
-                        id_str = str(result[0])
-                        # Same UUID validation as above
-                        if '-' in id_str and len(id_str.replace('-', '')) == 32:
-                            pattern_id = UUID(id_str)
-                        else:
-                            import re
-                            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
-                            if uuid_match:
-                                pattern_id = UUID(uuid_match.group(1))
+                
+                # Check if points array is directly in the result
+                elif hasattr(result, 'points') and isinstance(result.points, list) and len(result.points) > 0:
+                    for point in result.points:
+                        if hasattr(point, 'id') and hasattr(point, 'payload') and 'id' in point.payload:
+                            pattern_id = UUID(point.payload['id'])
+                            score = point.score if hasattr(point, 'score') else 0.0
+                            break
+                
+                # Handle ScoredPoint format
+                elif hasattr(result, 'score') and isinstance(result.score, list):
+                    for point in result.score:
+                        if hasattr(point, 'id') and hasattr(point, 'payload') and 'id' in point.payload:
+                            pattern_id = UUID(point.payload['id'])
+                            score = point.score if hasattr(point, 'score') else 0.0
+                            # Use first result with highest score
+                            break
                 
                 # Skip if we couldn't extract a valid UUID
                 if pattern_id is None:
@@ -365,11 +369,6 @@ class KnowledgeBase:
                 # Get the pattern using the UUID
                 pattern = await self.get_pattern(pattern_id)
                 if pattern:
-                    # Get score from result
-                    score = result.score if hasattr(result, 'score') else (
-                        result[1] if isinstance(result, tuple) and len(result) >= 2 else 0.0
-                    )
-                    
                     search_results.append(SearchResult(
                         pattern=pattern,
                         similarity_score=score
