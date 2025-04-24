@@ -211,7 +211,7 @@ class KnowledgeBase:
             try:
                 embedding = await self.vector_store.embedder.embed(combined_text)
                 await self.vector_store.store_pattern(
-                    pattern_id=str(pattern.id),
+                    id=str(pattern.id),
                     title=pattern.name,
                     description=pattern.description,
                     pattern_type=pattern.type.value,
@@ -275,7 +275,7 @@ class KnowledgeBase:
             try:
                 embedding = await self.vector_store.embedder.embed(combined_text)
                 await self.vector_store.update_pattern(
-                    pattern_id=str(pattern.id),
+                    id=str(pattern.id),
                     title=pattern.name,
                     description=pattern.description,
                     pattern_type=pattern.type.value,
@@ -327,12 +327,55 @@ class KnowledgeBase:
         # Load full patterns
         search_results = []
         for result in results:
-            pattern = await self.get_pattern(UUID(result.id))
-            if pattern:
-                search_results.append(SearchResult(
-                    pattern=pattern,
-                    similarity_score=result.score
-                ))
+            try:
+                # Handle different ID formats from Qdrant client
+                pattern_id = None
+                if hasattr(result, 'id'):
+                    # Try to convert the ID to UUID, handling different formats
+                    id_str = str(result.id)
+                    # Check if it's a valid UUID format
+                    if '-' in id_str and len(id_str.replace('-', '')) == 32:
+                        pattern_id = UUID(id_str)
+                    else:
+                        # Try to extract a UUID from the ID
+                        # Look for UUID patterns like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+                        import re
+                        uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
+                        if uuid_match:
+                            pattern_id = UUID(uuid_match.group(1))
+                else:
+                    # Handle tuple results from newer Qdrant client
+                    # Tuple format is typically (id, score, payload)
+                    if isinstance(result, tuple) and len(result) >= 1:
+                        id_str = str(result[0])
+                        # Same UUID validation as above
+                        if '-' in id_str and len(id_str.replace('-', '')) == 32:
+                            pattern_id = UUID(id_str)
+                        else:
+                            import re
+                            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
+                            if uuid_match:
+                                pattern_id = UUID(uuid_match.group(1))
+                
+                # Skip if we couldn't extract a valid UUID
+                if pattern_id is None:
+                    print(f"Warning: Could not extract valid UUID from result ID: {result}")
+                    continue
+                
+                # Get the pattern using the UUID
+                pattern = await self.get_pattern(pattern_id)
+                if pattern:
+                    # Get score from result
+                    score = result.score if hasattr(result, 'score') else (
+                        result[1] if isinstance(result, tuple) and len(result) >= 2 else 0.0
+                    )
+                    
+                    search_results.append(SearchResult(
+                        pattern=pattern,
+                        similarity_score=score
+                    ))
+            except (ValueError, AttributeError, IndexError, TypeError) as e:
+                print(f"Warning: Failed to process result {result}: {e}")
                 
         return search_results
     
@@ -403,7 +446,7 @@ class KnowledgeBase:
         pattern_dir.mkdir(parents=True, exist_ok=True)
         pattern_path = pattern_dir / f"{pattern.id}.json"
         with open(pattern_path, "w") as f:
-            json.dump(pattern.dict(), f, indent=2, default=str)
+            json.dump(pattern.model_dump(), f, indent=2, default=str)
 
     async def search_patterns(
         self,

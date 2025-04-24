@@ -11,6 +11,7 @@ from contextlib import ExitStack
 from pathlib import Path
 from threading import Lock
 from typing import AsyncGenerator, Dict, Generator, Optional, Set
+import tracemalloc
 
 import httpx
 import pytest
@@ -25,6 +26,9 @@ from src.mcp_codebase_insight.server import CodebaseAnalysisServer
 from src.mcp_codebase_insight.server_test_isolation import get_isolated_server_state
 
 logger = logging.getLogger(__name__)
+
+# Enable tracemalloc for debugging resource warnings and coroutine tracking
+tracemalloc.start(25)  # Keep 25 frames to provide good traceback info
 
 # Track process-specific event loops with mutex protection
 _event_loops: Dict[int, asyncio.AbstractEventLoop] = {}

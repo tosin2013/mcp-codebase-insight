@@ -284,3 +284,4 @@ prompts/
 
 # Ignore Qdrant data storage directory
 qdrant_data/
+.aider*

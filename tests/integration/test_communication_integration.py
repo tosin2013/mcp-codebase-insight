@@ -29,9 +29,10 @@ async def mock_communication_setup():
 
     return stdio_reader, stdio_writer, sse_client
 
+@pytest.mark.asyncio
 async def test_sse_stdio_interaction(mock_communication_setup):
     """Test interaction between SSE and STDIO communication channels."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
 
     # Step 1: Tool registration via STDIO
     registration_message = {
@@ -134,7 +135,7 @@ async def test_sse_stdio_interaction(mock_communication_setup):
     # Verify the communication flow
     assert state["message_count"] == 3
     assert state["last_message_id"] == "msg_2"
-    assert len(sse_client.events) == 4  # 1 from registration + 3 from the loop
+    assert len(sse_client.events) == 5  # 1 from registration + 1 from SSE event + 3 from the loop
 
     # Verify STDIO output contains all responses
     stdio_output = stdio_writer.get_output()
@@ -142,9 +143,10 @@ async def test_sse_stdio_interaction(mock_communication_setup):
         assert f"response_{i}" in stdio_output
         assert f"response_data_{i}" in stdio_output
 
+@pytest.mark.asyncio
 async def test_bidirectional_communication(mock_communication_setup):
     """Test bidirectional communication between stdio and SSE."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
 
     # Set up test message flow
     stdio_messages = [
@@ -192,9 +194,10 @@ async def test_bidirectional_communication(mock_communication_setup):
     assert len(responses) == len(stdio_messages)
     assert all(resp["type"] == "response" for resp in responses)
 
+@pytest.mark.asyncio
 async def test_error_propagation(mock_communication_setup):
     """Test error propagation between stdio and SSE."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
 
     # Simulate error in stdio
     error_message = {
@@ -232,9 +235,10 @@ async def test_error_propagation(mock_communication_setup):
     assert len(sse_client.events) == 1
     assert "error_event" in sse_client.events[0]
 
+@pytest.mark.asyncio
 async def test_connection_state_handling(mock_communication_setup):
     """Test handling of connection state changes."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
 
     # Test normal operation
     test_message = {
@@ -268,9 +272,10 @@ async def test_connection_state_handling(mock_communication_setup):
     assert "client_disconnected" in stdio_writer.get_output()
     assert not sse_client.connected
 
+@pytest.mark.asyncio
 async def test_race_condition_handling(mock_communication_setup):
     """Test handling of potential race conditions in message processing."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
     messages = [
         {"type": "request", "id": f"race_test_{i}", "sequence": i, "data": f"data_{i}"}
         for i in range(5)
@@ -304,9 +309,10 @@ async def test_race_condition_handling(mock_communication_setup):
         event = json.loads(event_json)
         assert event["sequence"] < len(messages)
 
+@pytest.mark.asyncio
 async def test_resource_cleanup(mock_communication_setup):
     """Test proper cleanup of resources after communication ends."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
     allocated_resources = set()
     async def allocate_resource(resource_id):
         allocated_resources.add(resource_id)
@@ -330,9 +336,10 @@ async def test_resource_cleanup(mock_communication_setup):
         await release_resource(resource_id)
     assert len(allocated_resources) == 0
 
+@pytest.mark.asyncio
 async def test_partial_message_handling(mock_communication_setup):
     """Test handling of partial or truncated messages."""
-    stdio_reader, stdio_writer, sse_client = mock_communication_setup
+    stdio_reader, stdio_writer, sse_client = await mock_communication_setup
     partial_json = '{"type": "request", "id": "partial_test", "method": "test"'
     stdio_reader.input_stream.write(partial_json + "\n")
     stdio_reader.input_stream.seek(0)

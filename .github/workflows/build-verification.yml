@@ -39,7 +39,7 @@ jobs:
 
     services:
       qdrant:
-        image: qdrant/qdrant:latest
+        image: qdrant/qdrant:v1.13.6
         ports:
           - 6333:6333
           - 6334:6334
@@ -51,7 +51,7 @@ jobs:
           fetch-depth: 0  # Fetch all history for dependencies analysis
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v4.7.1
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -59,29 +59,8 @@ jobs:
       - name: Wait for Qdrant and verify connection
         run: |
           echo "Waiting for Qdrant to start..."
-          apt-get update && apt-get install -y curl jq || true
-
-          retry_count=0
-          max_retries=20
-          until [ $(curl -s -o /dev/null -w "%{http_code}" http://localhost:6333/collections) -eq 200 ] || [ $retry_count -eq $max_retries ]
-          do
-            echo "Waiting for Qdrant... (attempt $retry_count of $max_retries)"
-            sleep 5
-            retry_count=$((retry_count+1))
-          done
-
-          if [ $retry_count -eq $max_retries ]; then
-            echo "Qdrant service failed to become available after 30 seconds"
-            exit 1
-          fi
-
-          # Check for valid JSON response
-          if ! curl -s http://localhost:6333/collections | jq . > /dev/null; then
-            echo "Qdrant did not return valid JSON."
-            exit 1
-          fi
-
-          echo "Qdrant service is accessible."
+          chmod +x scripts/check_qdrant_health.sh
+          ./scripts/check_qdrant_health.sh "http://localhost:6333" 20 5
 
       - name: Setup private packages
         run: |
@@ -89,7 +68,7 @@ jobs:
           mkdir -p local-packages
 
           # If there are private packages in repositories, clone them here
-          if [ ! -z "${{ secrets.PRIVATE_REPO_URL }}" ]; then
+          if [ -n "${{ secrets.PRIVATE_REPO_URL }}" ]; then
             echo "Setting up private package repository..."
 
             # Configure pip to use the private repository if provided
@@ -98,7 +77,7 @@ jobs:
             echo "index-url = https://pypi.org/simple" >> ~/.pip/pip.conf
 
             # Add the private repository with token if available
-            if [ ! -z "${{ secrets.PRIVATE_REPO_TOKEN }}" ]; then
+            if [ -n "${{ secrets.PRIVATE_REPO_TOKEN }}" ]; then
               echo "extra-index-url = ${{ secrets.PRIVATE_REPO_URL }}:${{ secrets.PRIVATE_REPO_TOKEN }}@simple" >> ~/.pip/pip.conf
             else
               echo "extra-index-url = ${{ secrets.PRIVATE_REPO_URL }}/simple" >> ~/.pip/pip.conf
@@ -106,9 +85,9 @@ jobs:
           fi
 
           # If there are local Git repositories for dependencies, clone them
-          if [ ! -z "${{ secrets.MCP_SERVER_QDRANT_REPO }}" ]; then
+          if [ -n "${{ secrets.MCP_SERVER_QDRANT_REPO }}" ]; then
             echo "Cloning mcp-server-qdrant from repository..."
-            git clone ${{ secrets.MCP_SERVER_QDRANT_REPO }} local-packages/mcp-server-qdrant
+            git clone "${{ secrets.MCP_SERVER_QDRANT_REPO }}" local-packages/mcp-server-qdrant
 
             # Install the package in development mode
             cd local-packages/mcp-server-qdrant
@@ -117,9 +96,9 @@ jobs:
           fi
 
           # Similarly for uvx package if needed
-          if [ ! -z "${{ secrets.UVX_REPO }}" ]; then
+          if [ -n "${{ secrets.UVX_REPO }}" ]; then
             echo "Cloning uvx from repository..."
-            git clone ${{ secrets.UVX_REPO }} local-packages/uvx
+            git clone "${{ secrets.UVX_REPO }}" local-packages/uvx
 
             # Install the package in development mode
             cd local-packages/uvx
@@ -172,24 +151,25 @@ jobs:
           # Create required directories
           mkdir -p logs knowledge cache
 
-          # Set environment variables
-          echo "QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
-          echo "MCP_QDRANT_URL=http://localhost:6333" >> $GITHUB_ENV
-          echo "COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "MCP_COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}" >> $GITHUB_ENV
-          echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2" >> $GITHUB_ENV
-          echo "BUILD_COMMAND=make build" >> $GITHUB_ENV
-          echo "TEST_COMMAND=make test" >> $GITHUB_ENV
-          echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '40.0' }}" >> $GITHUB_ENV
-          echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}" >> $GITHUB_ENV
-          echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server" >> $GITHUB_ENV
-          echo "PYTHON_VERSION=${{ matrix.python-version }}" >> $GITHUB_ENV
+          {
+            echo "QDRANT_URL=http://localhost:6333"
+            echo "MCP_QDRANT_URL=http://localhost:6333"
+            echo "COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}"
+            echo "MCP_COLLECTION_NAME=mcp-codebase-insight-${{ matrix.python-version }}"
+            echo "EMBEDDING_MODEL=sentence-transformers/all-MiniLM-L6-v2"
+            echo "BUILD_COMMAND=make build"
+            echo "TEST_COMMAND=make test"
+            echo "MIN_TEST_COVERAGE=${{ github.event.inputs.min_coverage || '40.0' }}"
+            echo "MAX_ALLOWED_FAILURES=${{ github.event.inputs.max_failures || '0' }}"
+            echo "CRITICAL_MODULES=mcp_codebase_insight.core.vector_store,mcp_codebase_insight.core.knowledge,mcp_codebase_insight.server"
+            echo "PYTHON_VERSION=${{ matrix.python-version }}"
+          } >> "$GITHUB_ENV"
 
       - name: Initialize Qdrant collection
         run: |
           echo "Creating Qdrant collection for testing..."
           # Create a basic Python script to initialize the collection
-          cat > init_qdrant.py << EOF
+          cat > init_qdrant.py << 'EOF'
           import os
           from qdrant_client import QdrantClient
           from qdrant_client.http import models
@@ -222,7 +202,7 @@ jobs:
           python init_qdrant.py
 
           # Verify the collection was created
-          curl -s http://localhost:6333/collections/$COLLECTION_NAME || (echo "Failed to create Qdrant collection" && exit 1)
+          curl -s "http://localhost:6333/collections/$COLLECTION_NAME" || (echo "Failed to create Qdrant collection" && exit 1)
           echo "Qdrant collection initialized successfully."
 
       - name: Create configuration file
@@ -258,12 +238,16 @@ jobs:
             tests/components/test_stdio_components.py::test_stdio_error_handling \
             tests/components/test_stdio_components.py::test_stdio_large_message \
             tests/components/test_knowledge_base.py \
+            tests/integration/test_server.py::test_vector_store_search_threshold_validation \
+            tests/integration/test_server.py::test_vector_store_search_functionality \
+            tests/integration/test_server.py::test_vector_store_search_error_handling \
+            tests/integration/test_server.py::test_vector_store_search_performance \
             tests/integration/test_api_endpoints.py::test_health_check \
             tests/integration/test_api_endpoints.py::test_endpoint_integration \
             tests/integration/test_api_endpoints.py::test_error_handling \
             tests/integration/test_communication_integration.py::test_sse_stdio_interaction \
             tests/test_file_relationships.py \
-            -v --cov=src/mcp_codebase_insight --cov-report=xml:coverage.xml --cov-report=html:htmlcov
+            -v -p pytest_asyncio --cov=src/mcp_codebase_insight --cov-report=xml:coverage.xml --cov-report=html:htmlcov
 
           TEST_EXIT_CODE=$?
 
@@ -271,14 +255,15 @@ jobs:
           # Use config file if it exists and is not empty
           if [ -n "${{ github.event.inputs.config_file }}" ] && [ -f "${{ github.event.inputs.config_file }}" ] && [ -s "${{ github.event.inputs.config_file }}" ]; then
             CONFIG_ARG="--config ${{ github.event.inputs.config_file }}"
+            python -m scripts.verify_build $CONFIG_ARG --output build-verification-report.json
+          else
+            python -m scripts.verify_build --output build-verification-report.json
           fi
-
-          python -m scripts.verify_build $CONFIG_ARG --output build-verification-report.json
           VERIFY_EXIT_CODE=$?
 
           # Use new output syntax
           if [ $TEST_EXIT_CODE -ne 0 ] || [ $VERIFY_EXIT_CODE -ne 0 ]; then
-            echo "failed=true" >> $GITHUB_OUTPUT
+            echo "failed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Upload verification report
@@ -293,36 +278,46 @@ jobs:
         run: |
           if [ -f build-verification-report.json ]; then
             SUMMARY=$(jq -r '.build_verification_report.summary' build-verification-report.json)
-            echo "summary=$SUMMARY" >> $GITHUB_OUTPUT
+            echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
 
             STATUS=$(jq -r '.build_verification_report.verification_results.overall_status' build-verification-report.json)
-            echo "status=$STATUS" >> $GITHUB_OUTPUT
+            echo "status=$STATUS" >> "$GITHUB_OUTPUT"
 
-            echo "## Build Verification Report" > report.md
-            echo "### Status: $STATUS" >> report.md
-            echo "### Summary: $SUMMARY" >> report.md
-            echo "### Test Results" >> report.md
-            TOTAL=$(jq -r '.build_verification_report.test_summary.total' build-verification-report.json)
-            PASSED=$(jq -r '.build_verification_report.test_summary.passed' build-verification-report.json)
-            FAILED=$(jq -r '.build_verification_report.test_summary.failed' build-verification-report.json)
-            COVERAGE=$(jq -r '.build_verification_report.test_summary.coverage' build-verification-report.json)
-            echo "- Total Tests: $TOTAL" >> report.md
-            echo "- Passed: $PASSED" >> report.md
-            echo "- Failed: $FAILED" >> report.md
-            echo "- Coverage: $COVERAGE%" >> report.md
+            {
+              echo "## Build Verification Report"
+              echo "### Status: $STATUS"
+              echo "### Summary: $SUMMARY"
+              echo "### Test Results"
+              TOTAL=$(jq -r '.build_verification_report.test_summary.total' build-verification-report.json)
+              PASSED=$(jq -r '.build_verification_report.test_summary.passed' build-verification-report.json)
+              FAILED=$(jq -r '.build_verification_report.test_summary.failed' build-verification-report.json)
+              COVERAGE=$(jq -r '.build_verification_report.test_summary.coverage' build-verification-report.json)
+              echo "- Total Tests: $TOTAL"
+              echo "- Passed: $PASSED"
+              echo "- Failed: $FAILED"
+              echo "- Coverage: $COVERAGE%"
+            } > report.md
+            
             if jq -e '.build_verification_report.failure_analysis' build-verification-report.json > /dev/null; then
-              echo "### Failures Detected" >> report.md
-              jq -r '.build_verification_report.failure_analysis[] | "- " + .description' build-verification-report.json >> report.md
+              {
+                echo "### Failures Detected"
+                jq -r '.build_verification_report.failure_analysis[] | "- " + .description' build-verification-report.json
+              } >> report.md
             fi
+            
             if jq -e '.build_verification_report.contextual_verification' build-verification-report.json > /dev/null; then
-              echo "### Contextual Analysis" >> report.md
-              jq -r '.build_verification_report.contextual_verification[] | "#### Module: " + .module + "\n- Failure: " + .failure + "\n- Dependencies: " + (.dependencies | join(", ")) + "\n\n**Potential Causes:**\n" + (.potential_causes | map("- " + .) | join("\n")) + "\n\n**Recommended Actions:**\n" + (.recommended_actions | map("- " + .) | join("\n"))' build-verification-report.json >> report.md
+              {
+                echo "### Contextual Analysis"
+                jq -r '.build_verification_report.contextual_verification[] | "#### Module: " + .module + "\n- Failure: " + .failure + "\n- Dependencies: " + (.dependencies | join(", ")) + "\n\n**Potential Causes:**\n" + (.potential_causes | map("- " + .) | join("\n")) + "\n\n**Recommended Actions:**\n" + (.recommended_actions | map("- " + .) | join("\n"))' build-verification-report.json
+              } >> report.md
             fi
           else
-            echo "summary=Build verification failed - no report generated" >> $GITHUB_OUTPUT
-            echo "status=FAILED" >> $GITHUB_OUTPUT
-            echo "## Build Verification Failed" > report.md
-            echo "No report was generated. Check the logs for more information." >> report.md
+            {
+              echo "summary=Build verification failed - no report generated" >> "$GITHUB_OUTPUT"
+              echo "status=FAILED" >> "$GITHUB_OUTPUT"
+              echo "## Build Verification Failed"
+              echo "No report was generated. Check the logs for more information."
+            } > report.md
           fi
           cat report.md
 

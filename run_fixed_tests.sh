@@ -20,6 +20,6 @@ if [ $# -eq 0 ]; then
   echo "Running specific vector store tests..."
   python component_test_runner.py tests/components/test_vector_store.py
 else
-  echo "Running specified tests: $@"
+  echo "Running specified tests: $*"
   python component_test_runner.py "$@"
 fi

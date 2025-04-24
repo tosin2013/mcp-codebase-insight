@@ -15,18 +15,21 @@ MCP Codebase Insight is a system for analyzing and understanding codebases throu
 - ✅ Basic Knowledge Base
 - ✅ SSE Integration
 - ✅ Testing Framework
+- ✅ TDD and Debugging Framework (rules_template integration)
 
 ### In Progress
 - 🔄 Documentation Management System
 - 🔄 Advanced Pattern Detection
 - 🔄 Performance Optimization
 - 🔄 Integration Testing
+- 🔄 Debugging Utilities Enhancement
 
 ### Planned
 - 📋 Extended API Documentation
 - 📋 Custom Pattern Plugins
 - 📋 Advanced Caching Strategies
 - 📋 Deployment Guides
+- 📋 Comprehensive Error Tracking System
 
 ## Quick Start
 
@@ -45,8 +48,67 @@ MCP Codebase Insight is a system for analyzing and understanding codebases throu
 
 3. **Running Tests**
    ```bash
+   # Run all tests
    pytest tests/
+   
+   # Run unit tests
+   pytest tests/unit/
+   
+   # Run component tests
+   pytest tests/components/
+   
+   # Run tests with coverage
+   pytest tests/ --cov=src --cov-report=term-missing
    ```
+
+4. **Debugging Utilities**
+   ```python
+   from mcp_codebase_insight.utils.debug_utils import debug_trace, DebugContext, get_error_tracker
+   
+   # Use debug trace decorator
+   @debug_trace
+   def my_function():
+       # Implementation
+   
+   # Use debug context
+   with DebugContext("operation_name"):
+       # Code to debug
+   
+   # Track errors
+   try:
+       # Risky operation
+   except Exception as e:
+       error_id = get_error_tracker().record_error(e, context={"operation": "description"})
+       print(f"Error recorded with ID: {error_id}")
+   ```
+
+## Testing and Debugging
+
+### Test-Driven Development
+
+This project follows Test-Driven Development (TDD) principles:
+
+1. Write a failing test first (Red)
+2. Write minimal code to make the test pass (Green)
+3. Refactor for clean code while keeping tests passing (Refactor)
+
+Our TDD documentation can be found in [docs/tdd/workflow.md](docs/tdd/workflow.md).
+
+### Debugging Framework
+
+We use Agans' 9 Rules of Debugging:
+
+1. Understand the System
+2. Make It Fail
+3. Quit Thinking and Look
+4. Divide and Conquer
+5. Change One Thing at a Time
+6. Keep an Audit Trail
+7. Check the Plug
+8. Get a Fresh View
+9. If You Didn't Fix It, It Isn't Fixed
+
+Learn more about our debugging approach in [docs/debuggers/agans_9_rules.md](docs/debuggers/agans_9_rules.md).
 
 ## Documentation
 
@@ -55,6 +117,8 @@ MCP Codebase Insight is a system for analyzing and understanding codebases throu
 - [API Reference](docs/api/README.md)
 - [Development Guide](docs/development/README.md)
 - [Workflows](docs/workflows/README.md)
+- [TDD Workflow](docs/tdd/workflow.md)
+- [Debugging Practices](docs/debuggers/best_practices.md)
 
 ## Contributing
 

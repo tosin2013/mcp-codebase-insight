@@ -704,12 +704,14 @@ class BuildVerifier:
             
             # Generate a consistent ID with prefix
             report_id = f"build-verification-{uuid.uuid4()}"
+            report_text = json.dumps(report)
             
-            # Store report in vector database
-            await self.vector_store.store_pattern(
-                id=report_id,
-                text=json.dumps(report),
+            # Store report in vector database with separate parameters instead of using id
+            # This avoids the 'tuple' object has no attribute 'id' error
+            await self.vector_store.add_vector(
+                text=report_text,
                 metadata={
+                    "id": report_id,  # Include ID in metadata
                     "type": "build_verification_report",
                     "timestamp": timestamp,
                     "overall_status": overall_status
