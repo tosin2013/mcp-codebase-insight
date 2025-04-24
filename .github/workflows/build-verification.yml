@@ -238,6 +238,10 @@ jobs:
             tests/components/test_stdio_components.py::test_stdio_error_handling \
             tests/components/test_stdio_components.py::test_stdio_large_message \
             tests/components/test_knowledge_base.py \
+            tests/integration/test_server.py::test_vector_store_search_threshold_validation \
+            tests/integration/test_server.py::test_vector_store_search_functionality \
+            tests/integration/test_server.py::test_vector_store_search_error_handling \
+            tests/integration/test_server.py::test_vector_store_search_performance \
             tests/integration/test_api_endpoints.py::test_health_check \
             tests/integration/test_api_endpoints.py::test_endpoint_integration \
             tests/integration/test_api_endpoints.py::test_error_handling \
