@@ -55,27 +55,83 @@ async def test_add_and_get_pattern(knowledge_base: KnowledgeBase):
 
 @pytest.mark.asyncio
 async def test_find_similar_patterns(knowledge_base: KnowledgeBase):
-    """Test finding similar patterns."""
-    # Add test patterns
+    """Test finding similar patterns with different queries and thresholds."""
+    # Add test patterns with more substantial content to create better embeddings
     pattern1_data = {
-        "name": "Test Pattern 1",
-        "description": "First test pattern",
-        "content": "def test1(): pass",
-        "tags": ["test"]
+        "name": "Python Class Example",
+        "description": "An example of a Python class with methods",
+        "content": """
+class SearchResult:
+    \"\"\"Represents a search result from the vector store.\"\"\"
+    def __init__(self, id: str, score: float, metadata: dict = None):
+        self.id = id
+        self.score = score
+        self.metadata = metadata or {}
+        
+    def to_dict(self):
+        \"\"\"Convert to dictionary.\"\"\"
+        return {
+            "id": self.id,
+            "score": self.score,
+            "metadata": self.metadata
+        }
+        """,
+        "tags": ["class", "python", "search"]
     }
+    
     pattern2_data = {
-        "name": "Test Pattern 2",
-        "description": "Second test pattern",
-        "content": "def test2(): pass",
-        "tags": ["test"]
+        "name": "Async Function Example",
+        "description": "An example of an async function in Python",
+        "content": """
+async def search_patterns(query: str, limit: int = 5, threshold: float = 0.7):
+    \"\"\"Search for patterns matching the query.\"\"\"
+    # Generate embedding for the query
+    embedding = await generate_embedding(query)
+    
+    # Perform the search
+    results = await vector_store.search(
+        embedding=embedding,
+        limit=limit
+    )
+    
+    # Filter by threshold
+    filtered_results = [r for r in results if r.score >= threshold]
+    
+    return filtered_results
+        """,
+        "tags": ["async", "function", "python", "search"]
+    }
+    
+    pattern3_data = {
+        "name": "Semantic Search Documentation",
+        "description": "Documentation about using semantic search",
+        "content": """
+# Semantic Search
+
+Semantic search uses embeddings to find similar content based on meaning rather than keywords.
+
+## Search Parameters:
+
+- **query**: The text to search for similar patterns
+- **threshold**: Similarity score threshold (0.0 to 1.0)
+- **limit**: Maximum number of results to return
+
+## Example Usage:
+
+```python
+results = await search("Python class example", threshold=0.7)
+```
+        """,
+        "tags": ["documentation", "search", "embeddings"]
     }
 
+    # Add all patterns
     pattern1 = await knowledge_base.add_pattern(
         name=pattern1_data["name"],
         type=PatternType.CODE,
         description=pattern1_data["description"],
         content=pattern1_data["content"],
-        confidence=PatternConfidence.MEDIUM,
+        confidence=PatternConfidence.HIGH,
         tags=pattern1_data["tags"]
     )
 
@@ -87,10 +143,98 @@ async def test_find_similar_patterns(knowledge_base: KnowledgeBase):
         confidence=PatternConfidence.MEDIUM,
         tags=pattern2_data["tags"]
     )
+    
+    pattern3 = await knowledge_base.add_pattern(
+        name=pattern3_data["name"],
+        type=PatternType.BEST_PRACTICE,  # Using BEST_PRACTICE instead of DOCUMENTATION
+        description=pattern3_data["description"],
+        content=pattern3_data["content"],
+        confidence=PatternConfidence.HIGH,
+        tags=pattern3_data["tags"]
+    )
 
-    # Search for similar patterns
-    similar = await knowledge_base.find_similar_patterns("test pattern")
-    assert len(similar) > 0
+    # Define test cases with different queries and expected pattern matches
+    test_cases = [
+        {
+            "query": "Python class with methods",
+            "threshold": 0.7,
+            "expected_pattern_ids": [pattern1.id]
+        },
+        {
+            "query": "async function for searching",
+            "threshold": 0.65,
+            "expected_pattern_ids": [pattern2.id]
+        },
+        {
+            "query": "semantic search documentation",
+            "threshold": 0.6,
+            "expected_pattern_ids": [pattern3.id]
+        },
+        {
+            "query": "search",  # Generic query that should match multiple patterns
+            "threshold": 0.5,
+            "min_expected_count": 2
+        }
+    ]
+    
+    # Test each case
+    for tc in test_cases:
+        similar = await knowledge_base.find_similar_patterns(
+            query=tc["query"],
+            limit=5,
+            pattern_type=None,  # Test without type filter
+            confidence=None,    # Test without confidence filter
+            tags=None          # Test without tag filter
+        )
+        
+        # Assert we have results
+        assert len(similar) > 0, f"Query '{tc['query']}' returned no results"
+        
+        # Check for specific expected IDs if specified
+        if "expected_pattern_ids" in tc:
+            found_ids = [str(result.pattern.id) for result in similar]
+            for expected_id in tc["expected_pattern_ids"]:
+                assert str(expected_id) in found_ids, \
+                    f"Expected pattern {expected_id} not found in results for query '{tc['query']}'"
+        
+        # Check for minimum count if specified
+        if "min_expected_count" in tc:
+            assert len(similar) >= tc["min_expected_count"], \
+                f"Expected at least {tc['min_expected_count']} results for query '{tc['query']}', got {len(similar)}"
+        
+        # Verify result structure
+        for result in similar:
+            assert hasattr(result, "pattern"), "Result missing 'pattern' attribute"
+            assert hasattr(result, "similarity_score"), "Result missing 'similarity_score' attribute"
+            assert isinstance(result.similarity_score, float), f"Similarity score is not a float: {result.similarity_score}"
+            assert 0 <= result.similarity_score <= 1, f"Similarity score {result.similarity_score} out of valid range [0,1]"
+        
+    # Test with type filter
+    code_results = await knowledge_base.find_similar_patterns(
+        query="search",
+        pattern_type=PatternType.CODE
+    )
+    assert len(code_results) > 0, "No results found with CODE type filter"
+    assert all(result.pattern.type == PatternType.CODE for result in code_results), \
+        "Found results with incorrect type when filtering by CODE"
+    
+    # Test with confidence filter
+    high_confidence_results = await knowledge_base.find_similar_patterns(
+        query="search",
+        confidence=PatternConfidence.HIGH
+    )
+    assert len(high_confidence_results) > 0, "No results found with HIGH confidence filter"
+    assert all(result.pattern.confidence == PatternConfidence.HIGH for result in high_confidence_results), \
+        "Found results with incorrect confidence when filtering by HIGH"
+    
+    # Test with tags filter
+    documentation_results = await knowledge_base.find_similar_patterns(
+        query="search",
+        tags=["documentation"]
+    )
+    assert len(documentation_results) > 0, "No results found with 'documentation' tag filter"
+    assert all("documentation" in (result.pattern.tags or []) for result in documentation_results), \
+        "Found results without 'documentation' tag when filtering by tag"
 
 @pytest.mark.asyncio
 async def test_update_pattern(knowledge_base: KnowledgeBase):

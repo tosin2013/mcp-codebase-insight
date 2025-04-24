@@ -2,11 +2,14 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Any
 from uuid import UUID, uuid4
 import json
+import logging
 
 from pydantic import BaseModel, Field
+
+logger = logging.getLogger(__name__)
 
 class PatternType(str, Enum):
     """Pattern type enumeration."""
@@ -118,7 +121,7 @@ class KnowledgeBase:
             self.initialized = True
         except Exception as e:
             import traceback
-            print(f"Error initializing knowledge base: {str(e)}\n{traceback.format_exc()}")
+            logger.error("Error initializing knowledge base: %s\n%s", str(e), traceback.format_exc())
             self.config.set_state("kb_initialized", False)
             self.config.set_state("kb_error", str(e))
             raise RuntimeError(f"Failed to initialize knowledge base: {str(e)}")
@@ -135,7 +138,7 @@ class KnowledgeBase:
                         key = f"{relationship.source_file}:{relationship.target_file}"
                         self.file_relationships[key] = relationship
                 except Exception as e:
-                    print(f"Error loading relationship from {file_path}: {e}")
+                    logger.error("Error loading relationship from %s: %s", file_path, e)
     
     async def _load_web_sources(self):
         """Load existing web sources."""
@@ -148,7 +151,7 @@ class KnowledgeBase:
                         source = WebSource(**data)
                         self.web_sources[source.url] = source
                 except Exception as e:
-                    print(f"Error loading web source from {file_path}: {e}")
+                    logger.error("Error loading web source from %s: %s", file_path, e)
     
     async def _create_initial_patterns(self):
         """Create initial patterns for testing."""
@@ -170,7 +173,7 @@ class KnowledgeBase:
             if self.vector_store:
                 await self.vector_store.cleanup()
         except Exception as e:
-            print(f"Error cleaning up knowledge base: {e}")
+            logger.error("Error cleaning up knowledge base: %s", e)
         finally:
             self.config.set_state("kb_initialized", False)
             self.initialized = False
@@ -219,7 +222,7 @@ class KnowledgeBase:
                     embedding=embedding
                 )
             except Exception as e:
-                print(f"Warning: Failed to store pattern vector: {e}")
+                logger.warning("Failed to store pattern vector: %s", e)
         
         # Save pattern to file
         await self._save_pattern(pattern)
@@ -283,11 +286,144 @@ class KnowledgeBase:
                     embedding=embedding
                 )
             except Exception as e:
-                print(f"Warning: Failed to update pattern vector: {e}")
+                logger.warning("Failed to update pattern vector: %s", e)
         
         await self._save_pattern(pattern)
         return pattern
     
+    def _extract_id_and_score(self, result: Any) -> Tuple[Optional[UUID], float]:
+        """Extract pattern ID and similarity score from various Qdrant result formats.
+        
+        Handles:
+        - SearchResult objects with direct id/score
+        - Results with metadata containing ID
+        - Results with points list (Qdrant v1.0+)
+        - Results with score/scores list (batch results)
+        - Tuple results (id, score, payload)
+        
+        Returns:
+            Tuple containing (UUID or None, similarity score)
+        """
+        pattern_id = None
+        score = 0.0
+        
+        # Case 1: Direct SearchResult object
+        if hasattr(result, 'id') and hasattr(result, 'score'):
+            id_str = str(result.id)
+            score = result.score
+            
+            # Check for typical Qdrant response with metadata
+            if hasattr(result, 'metadata') and isinstance(result.metadata, dict) and 'id' in result.metadata:
+                try:
+                    pattern_id = UUID(result.metadata['id'])
+                    return pattern_id, score
+                except ValueError:
+                    logger.debug("Couldn't parse UUID from metadata['id']: %s", result.metadata['id'])
+            
+            # Try to parse direct ID
+            if '-' in id_str and len(id_str.replace('-', '')) == 32:
+                try:
+                    pattern_id = UUID(id_str)
+                    return pattern_id, score
+                except ValueError:
+                    logger.debug("Couldn't parse UUID from direct id: %s", id_str)
+            
+            # Try to extract UUID pattern from string
+            import re
+            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
+            if uuid_match:
+                try:
+                    pattern_id = UUID(uuid_match.group(1))
+                    return pattern_id, score
+                except ValueError:
+                    logger.debug("Couldn't parse UUID from regex match: %s", uuid_match.group(1))
+        
+        # Case 2: Tuple format (id, score, payload)
+        if isinstance(result, tuple) and len(result) >= 1:
+            id_str = str(result[0])
+            # Get score from tuple if available
+            if len(result) >= 2 and isinstance(result[1], (int, float)):
+                score = float(result[1])
+            
+            # Try direct ID parsing
+            if '-' in id_str and len(id_str.replace('-', '')) == 32:
+                try:
+                    pattern_id = UUID(id_str)
+                    return pattern_id, score
+                except ValueError:
+                    logger.debug("Couldn't parse UUID from tuple id: %s", id_str)
+            
+            # Try regex extraction
+            import re
+            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
+            if uuid_match:
+                try:
+                    pattern_id = UUID(uuid_match.group(1))
+                    return pattern_id, score
+                except ValueError:
+                    logger.debug("Couldn't parse UUID from tuple regex match: %s", uuid_match.group(1))
+        
+        # Case 3: Points array in result (Qdrant v1.0+)
+        if hasattr(result, 'points') and isinstance(result.points, list) and len(result.points) > 0:
+            for point in result.points:
+                if hasattr(point, 'id') and hasattr(point, 'payload') and 'id' in point.payload:
+                    try:
+                        pattern_id = UUID(point.payload['id'])
+                        
+                        # Check for score or distance
+                        if hasattr(point, 'score'):
+                            score = point.score
+                        elif hasattr(point, 'distance'):
+                            # Convert distance to similarity score (1.0 is best)
+                            score = 1.0 - min(point.distance, 1.0)
+                        
+                        return pattern_id, score
+                    except ValueError:
+                        logger.debug("Couldn't parse UUID from point payload: %s", point.payload['id'])
+                        continue
+        
+        # Case 4: Score/scores as list of ScoredPoints
+        if hasattr(result, 'score') and isinstance(result.score, list) and len(result.score) > 0:
+            scored_points = result.score
+            for point in scored_points:
+                if hasattr(point, 'id') and hasattr(point, 'payload') and 'id' in point.payload:
+                    try:
+                        pattern_id = UUID(point.payload['id'])
+                        
+                        # Check for score or distance
+                        if hasattr(point, 'score'):
+                            score = point.score
+                        elif hasattr(point, 'distance'):
+                            # Convert distance to similarity score
+                            score = 1.0 - min(point.distance, 1.0)
+                        
+                        return pattern_id, score
+                    except ValueError:
+                        logger.debug("Couldn't parse UUID from score point payload: %s", point.payload['id'])
+                        continue
+        
+        # Also check for 'scores' attribute (some Qdrant versions use this)
+        if hasattr(result, 'scores') and isinstance(result.scores, list) and len(result.scores) > 0:
+            scored_points = result.scores
+            for point in scored_points:
+                if hasattr(point, 'id') and hasattr(point, 'payload') and 'id' in point.payload:
+                    try:
+                        pattern_id = UUID(point.payload['id'])
+                        
+                        # Check for score or distance
+                        if hasattr(point, 'score'):
+                            score = point.score
+                        elif hasattr(point, 'distance'):
+                            # Convert distance to similarity score
+                            score = 1.0 - min(point.distance, 1.0)
+                        
+                        return pattern_id, score
+                    except ValueError:
+                        logger.debug("Couldn't parse UUID from scores point payload: %s", point.payload['id'])
+                        continue
+        
+        return pattern_id, score
+
     async def find_similar_patterns(
         self,
         query: str,
@@ -317,7 +453,7 @@ class KnowledgeBase:
                 limit=limit
             )
         except Exception as e:
-            print(f"Warning: Semantic search failed ({e}), falling back to file-based search")
+            logger.warning("Semantic search failed (%s), falling back to file-based search", e)
             file_patterns = await self.list_patterns(pattern_type, confidence, tags)
             return [
                 SearchResult(pattern=p, similarity_score=0.0)
@@ -328,54 +464,23 @@ class KnowledgeBase:
         search_results = []
         for result in results:
             try:
-                # Handle different ID formats from Qdrant client
-                pattern_id = None
-                if hasattr(result, 'id'):
-                    # Try to convert the ID to UUID, handling different formats
-                    id_str = str(result.id)
-                    # Check if it's a valid UUID format
-                    if '-' in id_str and len(id_str.replace('-', '')) == 32:
-                        pattern_id = UUID(id_str)
-                    else:
-                        # Try to extract a UUID from the ID
-                        # Look for UUID patterns like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-                        import re
-                        uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
-                        if uuid_match:
-                            pattern_id = UUID(uuid_match.group(1))
-                else:
-                    # Handle tuple results from newer Qdrant client
-                    # Tuple format is typically (id, score, payload)
-                    if isinstance(result, tuple) and len(result) >= 1:
-                        id_str = str(result[0])
-                        # Same UUID validation as above
-                        if '-' in id_str and len(id_str.replace('-', '')) == 32:
-                            pattern_id = UUID(id_str)
-                        else:
-                            import re
-                            uuid_match = re.search(r'([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})', id_str, re.IGNORECASE)
-                            if uuid_match:
-                                pattern_id = UUID(uuid_match.group(1))
+                # Extract pattern ID and score using helper method
+                pattern_id, score = self._extract_id_and_score(result)
                 
                 # Skip if we couldn't extract a valid UUID
                 if pattern_id is None:
-                    print(f"Warning: Could not extract valid UUID from result ID: {result}")
+                    logger.warning("Could not extract UUID from search result %s", result)
                     continue
                 
                 # Get the pattern using the UUID
                 pattern = await self.get_pattern(pattern_id)
                 if pattern:
-                    # Get score from result
-                    score = result.score if hasattr(result, 'score') else (
-                        result[1] if isinstance(result, tuple) and len(result) >= 2 else 0.0
-                    )
-                    
                     search_results.append(SearchResult(
                         pattern=pattern,
                         similarity_score=score
                     ))
-            except (ValueError, AttributeError, IndexError, TypeError) as e:
-                print(f"Warning: Failed to process result {result}: {e}")
+            except Exception as e:
+                logger.exception("Failed to process search result %s", result)
                 
         return search_results
     
@@ -566,11 +671,11 @@ class KnowledgeBase:
             try:
                 await self.vector_store.delete_pattern(str(pattern_id))
             except Exception as e:
-                print(f"Warning: Failed to delete pattern vector: {e}")
+                logger.warning("Failed to delete pattern vector: %s", e)
         # Delete pattern file
         pattern_path = self.kb_dir / "patterns" / f"{pattern_id}.json"
         if pattern_path.exists():
             try:
                 pattern_path.unlink()
             except Exception as e:
-                print(f"Warning: Failed to delete pattern file: {e}")
+                logger.warning("Failed to delete pattern file: %s", e)

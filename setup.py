@@ -18,7 +18,7 @@ setup(
     long_description_content_type="text/markdown",
     author="Model Context Protocol",
     author_email="info@modelcontextprotocol.org",
-    url="https://github.com/modelcontextprotocol/mcp-codebase-insight",
+    url="https://github.com/tosin2013/mcp-codebase-insight",
     packages=find_packages(where="src"),
     package_dir={"": "src"},
     install_requires=[
@@ -44,10 +44,9 @@ setup(
         "numpy>=1.24.0",
         "python-slugify>=8.0.0",
         "slugify>=0.0.1",
-        # Temporarily commented out for development installation
-        # "uvx>=0.4.0",
+        "uvx>=0.4.0",
         "mcp-server-qdrant>=0.2.0",
-        "mcp==1.5.0",
+        "mcp>=1.5.0,<1.6.0",
     ],
     python_requires=">=3.9",
     classifiers=[

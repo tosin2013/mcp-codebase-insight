@@ -46,7 +46,7 @@ dependencies = [
     "python-slugify>=8.0.0",
     "slugify>=0.0.1",
     "numpy>=1.24.0",
-    # "uvx>=0.4.0",  # Temporarily commented out for development installation
+    "uvx>=0.4.0",
     "mcp-server-qdrant>=0.2.0",
     "mcp>=1.5.0,<1.6.0",  # Pin to MCP 1.5.0 for API compatibility
 ]
@@ -76,6 +76,7 @@ Issues = "https://github.com/tosin2013/mcp-codebase-insight/issues"
 
 [project.scripts]
 mcp-codebase-insight = "mcp_codebase_insight.server:run"
+mcp-server = "mcp_codebase_insight.server:run"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
