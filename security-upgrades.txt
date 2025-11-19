@@ -1,0 +1,5 @@
+# Security updates to fix known vulnerabilities
+transformers>=4.53.0  # Fix ReDoS vulnerabilities GHSA-9356-575x-2w9m, GHSA-59p9-h35m-wg4g, GHSA-rcv9-qm8p-9p6j, GHSA-4w7r-h757-3r74
+urllib3>=2.5.0  # Fix SSRF vulnerabilities GHSA-48p4-8xcf-vxj5, GHSA-pq67-6m6q-mj2v  
+twisted>=24.7.0  # Fix XSS and out-of-order request vulnerabilities PYSEC-2024-75, GHSA-c8m8-j448-xjx7
+aiohttp>=3.11.0,!=3.11.14  # Exclude yanked version
