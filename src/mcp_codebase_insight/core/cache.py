@@ -85,7 +85,7 @@ class DiskCache:
             with open(cache_path, "w") as f:
                 json.dump({
                     "value": value,
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 }, f)
         except Exception:
             # Ignore write errors
@@ -120,7 +120,7 @@ class DiskCache:
             with open(path) as f:
                 data = json.load(f)
                 timestamp = datetime.fromisoformat(data["timestamp"])
-                return datetime.utcnow() - timestamp > self.max_age
+                return datetime.now(timezone.utc) - timestamp > self.max_age
         except Exception:
             return True
 

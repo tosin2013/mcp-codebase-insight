@@ -501,13 +501,17 @@ def pytest_runtest_setup(item):
     # For any async test, ensure we have a valid event loop
     if 'asyncio' in item.keywords:
         try:
-            loop = asyncio.get_event_loop()
-            if loop.is_closed():
-                logger.warning(f"Found closed loop in {module_name}:{item.name}, creating new loop")
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            loop = asyncio.get_running_loop()
         except RuntimeError:
-            logger.warning(f"No event loop found in {module_name}:{item.name}, creating new loop")
+            # No running loop, try to get or create one
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_closed():
+                    logger.warning(f"Found closed loop in {module_name}:{item.name}, creating new loop")
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+            except RuntimeError:
+                logger.warning(f"No event loop found in {module_name}:{item.name}, creating new loop")
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 

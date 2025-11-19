@@ -1,6 +1,6 @@
 """Knowledge base for code patterns and insights."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
@@ -188,7 +188,7 @@ class KnowledgeBase:
         related_patterns: Optional[List[UUID]] = None
     ) -> Pattern:
         """Add a new pattern."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         pattern = Pattern(
             id=uuid4(),
             name=name,
@@ -266,7 +266,7 @@ class KnowledgeBase:
         if related_patterns:
             pattern.related_patterns = related_patterns
             
-        pattern.updated_at = datetime.utcnow()
+        pattern.updated_at = datetime.now(timezone.utc)
         
         # Update vector store if available
         if self.vector_store:

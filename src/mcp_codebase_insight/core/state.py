@@ -6,7 +6,7 @@ import asyncio
 from contextlib import AsyncExitStack
 import sys
 import threading
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import uuid
 
@@ -66,7 +66,7 @@ class ServerState:
         component = self._components[name]
         component.status = status
         component.error = error
-        component.last_update = datetime.utcnow()
+        component.last_update = datetime.now(timezone.utc)
         
         if instance is not None:
             component.instance = instance

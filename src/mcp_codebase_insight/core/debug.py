@@ -1,7 +1,7 @@
 """Debug system for issue tracking and analysis."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -103,7 +103,7 @@ class DebugSystem:
         description: Dict
     ) -> Issue:
         """Create a new issue."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         issue = Issue(
             id=uuid4(),
             title=title,
@@ -142,13 +142,13 @@ class DebugSystem:
         if status:
             issue.status = status
             if status == IssueStatus.RESOLVED:
-                issue.resolved_at = datetime.utcnow()
+                issue.resolved_at = datetime.now(timezone.utc)
         if steps:
             issue.steps = steps
         if metadata:
             issue.metadata = {**(issue.metadata or {}), **metadata}
             
-        issue.updated_at = datetime.utcnow()
+        issue.updated_at = datetime.now(timezone.utc)
         await self._save_issue(issue)
         return issue
     

@@ -1,7 +1,7 @@
 """ADR (Architecture Decision Record) management module."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -143,7 +143,7 @@ class ADRManager:
     ) -> ADR:
         """Create a new ADR."""
         adr_id = uuid4()
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         
         # Convert context dict to ADRContext
         adr_context = ADRContext(
@@ -208,7 +208,7 @@ class ADRManager:
         if metadata:
             adr.metadata = {**(adr.metadata or {}), **metadata}
             
-        adr.updated_at = datetime.utcnow()
+        adr.updated_at = datetime.now(timezone.utc)
         await self._save_adr(adr)
         return adr
     

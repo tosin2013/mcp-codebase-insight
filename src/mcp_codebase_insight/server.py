@@ -17,7 +17,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 from pydantic import BaseModel, Field, ValidationError
 from typing import Union
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from uuid import UUID
@@ -1332,8 +1332,8 @@ def create_app(config: ServerConfig) -> FastAPI:
                     "relationship_type": relationship["relationship_type"],
                     "description": relationship.get("description"),
                     "metadata": relationship.get("metadata"),
-                    "created_at": datetime.utcnow().isoformat(),
-                    "updated_at": datetime.utcnow().isoformat()
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat()
                 }
             
             result = await kb_state.kb.add_file_relationship(
@@ -1372,8 +1372,8 @@ def create_app(config: ServerConfig) -> FastAPI:
                         "relationship_type": "depends_on" if not relationship_type else relationship_type,
                         "description": "Test depends on helper",
                         "metadata": {},
-                        "created_at": datetime.utcnow().isoformat(),
-                        "updated_at": datetime.utcnow().isoformat()
+                        "created_at": datetime.now(timezone.utc).isoformat(),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
                     }
                 ]
                 
@@ -1420,7 +1420,7 @@ def create_app(config: ServerConfig) -> FastAPI:
                     "description": source.get("description"),
                     "metadata": source.get("metadata"),
                     "tags": source.get("tags"),
-                    "last_fetched": datetime.utcnow().isoformat(),
+                    "last_fetched": datetime.now(timezone.utc).isoformat(),
                     "related_patterns": None
                 }
                 
@@ -1461,7 +1461,7 @@ def create_app(config: ServerConfig) -> FastAPI:
                         "description": "Example tutorial",
                         "metadata": {},
                         "tags": ["guide", "tutorial"],
-                        "last_fetched": datetime.utcnow().isoformat(),
+                        "last_fetched": datetime.now(timezone.utc).isoformat(),
                         "related_patterns": None
                     }
                 ]
