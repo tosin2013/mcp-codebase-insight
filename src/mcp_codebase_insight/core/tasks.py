@@ -1,7 +1,7 @@
 """Task management module."""
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
@@ -126,7 +126,7 @@ class TaskManager:
                 if task.status == TaskStatus.IN_PROGRESS:
                     task.status = TaskStatus.FAILED
                     task.error = "Server shutdown"
-                    task.updated_at = datetime.utcnow()
+                    task.updated_at = datetime.now(timezone.utc)
                     await self._save_task(task)
         except Exception as e:
             print(f"Error cleaning up task manager: {e}")
@@ -177,7 +177,7 @@ class TaskManager:
         metadata: Optional[Dict[str, str]] = None
     ) -> Task:
         """Create a new task."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         task = Task(
             id=uuid4(),
             type=TaskType(type),
@@ -225,9 +225,9 @@ class TaskManager:
         if error:
             task.error = error
             
-        task.updated_at = datetime.utcnow()
+        task.updated_at = datetime.now(timezone.utc)
         if status == "completed":
-            task.completed_at = datetime.utcnow()
+            task.completed_at = datetime.now(timezone.utc)
             
         await self._save_task(task)
         return task
@@ -240,7 +240,7 @@ class TaskManager:
             
         if task.status in [TaskStatus.PENDING, TaskStatus.IN_PROGRESS]:
             task.status = TaskStatus.CANCELLED
-            task.updated_at = datetime.utcnow()
+            task.updated_at = datetime.now(timezone.utc)
             
         return task
     
@@ -275,7 +275,7 @@ class TaskManager:
                 
                 # Update status
                 task.status = TaskStatus.IN_PROGRESS
-                task.updated_at = datetime.utcnow()
+                task.updated_at = datetime.now(timezone.utc)
                 
                 try:
                     # Process task based on type
@@ -303,8 +303,8 @@ class TaskManager:
                     task.error = str(e)
                     task.status = TaskStatus.FAILED
                     
-                task.completed_at = datetime.utcnow()
-                task.updated_at = datetime.utcnow()
+                task.completed_at = datetime.now(timezone.utc)
+                task.updated_at = datetime.now(timezone.utc)
                 
                 # Mark task as done in the queue
                 self.task_queue.task_done()
@@ -450,13 +450,13 @@ class TaskManager:
             
             task.status = TaskStatus.COMPLETED
             task.result = {"total_documents": total_documents}
-            task.updated_at = datetime.utcnow()
-            task.completed_at = datetime.utcnow()
+            task.updated_at = datetime.now(timezone.utc)
+            task.completed_at = datetime.now(timezone.utc)
             await self._save_task(task)
             
         except Exception as e:
             print(f"Failed to process doc crawl task: {str(e)}")
             task.status = TaskStatus.FAILED
             task.error = str(e)
-            task.updated_at = datetime.utcnow()
+            task.updated_at = datetime.now(timezone.utc)
             await self._save_task(task)

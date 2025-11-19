@@ -4,7 +4,7 @@ import asyncio
 import os
 import psutil
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 
@@ -116,7 +116,7 @@ class HealthManager:
             status=status,
             components=self.components,
             system_metrics=system_metrics,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
     
     async def register_component(
@@ -128,7 +128,7 @@ class HealthManager:
         self.components[name] = ComponentHealth(
             name=name,
             status=HealthStatus.HEALTHY,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             metrics={}
         )
     
@@ -147,7 +147,7 @@ class HealthManager:
             name=name,
             status=status,
             message=message,
-            last_check=datetime.utcnow(),
+            last_check=datetime.now(timezone.utc),
             metrics=metrics
         )
     

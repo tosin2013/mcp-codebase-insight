@@ -1,7 +1,7 @@
 """Metrics collection and monitoring module."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Union
@@ -115,7 +115,7 @@ class MetricsManager:
             type=type,
             value=value,
             labels=labels,
-            timestamp=datetime.utcnow()
+            timestamp=datetime.now(timezone.utc)
         )
         
         if name not in self.metrics:
@@ -170,7 +170,7 @@ class MetricsManager:
             return None
             
         # Filter metrics within time window
-        cutoff = datetime.utcnow().timestamp() - (window_minutes * 60)
+        cutoff = datetime.now(timezone.utc).timestamp() - (window_minutes * 60)
         recent_metrics = [
             m for m in metrics
             if m.timestamp.timestamp() >= cutoff

@@ -1,7 +1,7 @@
 """Documentation management module."""
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -110,7 +110,7 @@ class DocumentationManager:
         related_docs: Optional[List[UUID]] = None
     ) -> Document:
         """Add a new document."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         doc = Document(
             id=uuid4(),
             title=title,
@@ -162,7 +162,7 @@ class DocumentationManager:
         if related_docs:
             doc.related_docs = related_docs
             
-        doc.updated_at = datetime.utcnow()
+        doc.updated_at = datetime.now(timezone.utc)
         await self._save_document(doc)
         return doc
     
@@ -248,7 +248,7 @@ class DocumentationManager:
                             metadata={
                                 "source_url": url,
                                 "source_type": source_type,
-                                "crawled_at": datetime.utcnow().isoformat()
+                                "crawled_at": datetime.now(timezone.utc).isoformat()
                             }
                         )
                         docs.append(doc)
@@ -303,7 +303,7 @@ class DocumentationManager:
                             metadata={
                                 "source_url": url,
                                 "source_type": source_type,
-                                "crawled_at": datetime.utcnow().isoformat()
+                                "crawled_at": datetime.now(timezone.utc).isoformat()
                             }
                         )
                         docs.append(doc)

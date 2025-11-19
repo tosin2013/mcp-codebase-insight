@@ -3,7 +3,7 @@
 import asyncio
 import logging
 from typing import Set, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from ..utils.logger import get_logger
 
@@ -15,9 +15,12 @@ class TaskTracker:
     def __init__(self):
         """Initialize the task tracker."""
         self._tasks: Set[asyncio.Task] = set()
-        self._loop = asyncio.get_event_loop()
+        try:
+            self._loop = asyncio.get_running_loop()
+        except RuntimeError:
+            self._loop = asyncio.new_event_loop()
         self._loop_id = id(self._loop)
-        self._start_time = datetime.utcnow()
+        self._start_time = datetime.now(timezone.utc)
         logger.debug(f"TaskTracker initialized with loop ID: {self._loop_id}")
     
     def track_task(self, task: asyncio.Task) -> None:
@@ -99,7 +102,7 @@ class TaskTracker:
         Returns:
             Uptime in seconds
         """
-        return (datetime.utcnow() - self._start_time).total_seconds()
+        return (datetime.now(timezone.utc) - self._start_time).total_seconds()
     
     def __del__(self):
         """Cleanup when the tracker is destroyed."""

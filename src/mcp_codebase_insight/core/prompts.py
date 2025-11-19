@@ -1,6 +1,6 @@
 """Prompt management and generation module."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Dict, List, Optional
 from uuid import UUID, uuid4
@@ -183,7 +183,7 @@ Provide:
         version: Optional[str] = None
     ) -> PromptTemplate:
         """Add a new prompt template."""
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         template = PromptTemplate(
             id=uuid4(),
             name=name,
@@ -258,5 +258,5 @@ Provide:
         if version:
             tmpl.version = version
             
-        tmpl.updated_at = datetime.utcnow()
+        tmpl.updated_at = datetime.now(timezone.utc)
         return tmpl

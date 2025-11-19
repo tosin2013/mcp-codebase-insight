@@ -4,7 +4,7 @@ import asyncio
 import logging
 import json
 from typing import Any, Callable, Dict, List, Optional, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 from starlette.applications import Starlette
 from starlette.routing import Mount, Route
 from starlette.requests import Request
@@ -28,7 +28,7 @@ async def send_heartbeats(queue: asyncio.Queue, interval: int = 30):
     """
     while True:
         try:
-            await queue.put({"type": "heartbeat", "timestamp": datetime.utcnow().isoformat()})
+            await queue.put({"type": "heartbeat", "timestamp": datetime.now(timezone.utc).isoformat()})
             await asyncio.sleep(interval)
         except asyncio.CancelledError:
             break
@@ -238,7 +238,7 @@ def create_sse_server(mcp_server: Optional[FastMCP] = None) -> Starlette:
         """Health check endpoint."""
         return JSONResponse({
             "status": "ok",
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "connections": len(transport.connections)
         })
     

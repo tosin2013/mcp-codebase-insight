@@ -23,19 +23,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test suite
 
 ### Changed
-- None
+- Updated `aiohttp` from 3.11.14 (yanked) to 3.13.2
+- Updated `fastapi` from 0.115.12 to 0.121.2
+- Updated `starlette` from 0.46.1 to 0.49.3
+- Updated `mcp` from 1.6.0 to 1.21.2
+- Updated `transformers` from 4.50.3 to 4.57.1
+- Updated `urllib3` from 2.3.0 to 2.5.0
+- Updated `h11` from 0.14.0 to 0.16.0
+- Updated `h2` from 4.2.0 to 4.3.0
+- Updated `requests` from 2.32.3 to 2.32.4
+- Updated `setuptools` from 78.1.0 to 78.1.1
+- Migrated from deprecated `datetime.utcnow()` to `datetime.now(timezone.utc)` (42 occurrences)
+- Improved async event loop handling in tests and core components
 
 ### Deprecated
 - None
 
 ### Removed
-- None
+- Removed yanked dependency version aiohttp 3.11.14
+- Removed fsspec yanked version constraint
 
 ### Fixed
-- None
+- Fixed 4 ReDoS vulnerabilities in transformers library (GHSA-9356-575x-2w9m, GHSA-59p9-h35m-wg4g, GHSA-rcv9-qm8p-9p6j, GHSA-4w7r-h757-3r74)
+- Fixed 2 SSRF vulnerabilities in urllib3 (GHSA-48p4-8xcf-vxj5, GHSA-pq67-6m6q-mj2v)
+- Fixed XSS vulnerabilities in starlette (GHSA-2c2j-9gv5-cj73, GHSA-7f5h-v6xp-fcq8)
+- Fixed security issues in mcp library (GHSA-3qhf-m339-9g5v, GHSA-j975-95f5-7wqh)
+- Fixed deprecation warnings for datetime.utcnow() usage across codebase
+- Fixed deprecation warnings for asyncio.get_event_loop() in tests
+- Improved test reliability and event loop handling
 
 ### Security
-- None
+- **Critical**: Fixed 10+ known security vulnerabilities through dependency updates
+- Completed security audit with bandit (only 2 low-severity issues remain)
+- Reduced pip-audit vulnerabilities from 20 to 10 (remaining are system packages)
+- Updated all security-critical dependencies to latest stable versions
 
 ## [0.2.2] - 2025-03-25
 
