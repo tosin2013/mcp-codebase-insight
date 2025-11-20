@@ -1,7 +1,7 @@
 # MCP Codebase Insight - WIP
 
-> 🚧 **Development in Progress** 
-> 
+> 🚧 **Development in Progress**
+>
 > This project is actively under development. Features and documentation are being continuously updated.
 
 ## Overview
@@ -34,6 +34,20 @@ MCP Codebase Insight is a system for analyzing and understanding codebases throu
 ## Quick Start
 
 1. **Installation**
+
+   **Recommended method (using UVX for Python 3.10+):**
+   ```bash
+   # Install UVX package manager
+   pip install "uvx<2.0"
+
+   # Install MCP Codebase Insight
+   pip install mcp-codebase-insight
+
+   # For development installation (from source)
+   pip install -e .
+   ```
+
+   Alternative method (using pip directly):
    ```bash
    pip install mcp-codebase-insight
    ```
@@ -41,39 +55,57 @@ MCP Codebase Insight is a system for analyzing and understanding codebases throu
 2. **Basic Usage**
    ```python
    from mcp_codebase_insight import CodebaseAnalyzer
-   
+
    analyzer = CodebaseAnalyzer()
    results = analyzer.analyze_code("path/to/code")
    ```
 
-3. **Running Tests**
+3. **Running the Server**
+   ```bash
+   # Using the Makefile
+   make run
+
+   # Using the Makefile with UVX
+   make run-uvx
+
+   # Using Docker (most reliable method)
+   make run-docker
+
+   # Or using Python directly
+   python -m mcp_codebase_insight.server --debug --port 3000
+
+   # Note: The server currently has an issue with the --reload flag
+   # This is a known issue with the server implementation
+   ```
+
+4. **Running Tests**
    ```bash
    # Run all tests
    pytest tests/
-   
+
    # Run unit tests
    pytest tests/unit/
-   
+
    # Run component tests
    pytest tests/components/
-   
+
    # Run tests with coverage
    pytest tests/ --cov=src --cov-report=term-missing
    ```
 
-4. **Debugging Utilities**
+5. **Debugging Utilities**
    ```python
    from mcp_codebase_insight.utils.debug_utils import debug_trace, DebugContext, get_error_tracker
-   
+
    # Use debug trace decorator
    @debug_trace
    def my_function():
        # Implementation
-   
+
    # Use debug context
    with DebugContext("operation_name"):
        # Code to debug
-   
+
    # Track errors
    try:
        # Risky operation
@@ -116,6 +148,7 @@ Learn more about our debugging approach in [docs/debuggers/agans_9_rules.md](doc
 - [Core Components](docs/components/README.md)
 - [API Reference](docs/api/README.md)
 - [Development Guide](docs/development/README.md)
+- [UVX Installation Guide](docs/getting-started/uvx_installation.md)
 - [Workflows](docs/workflows/README.md)
 - [TDD Workflow](docs/tdd/workflow.md)
 - [Debugging Practices](docs/debuggers/best_practices.md)
